@@ -22,6 +22,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from agents.detectors import Finding, compute_column_stats, run_all_detectors
+from agents.llm_factory import make_chat_model
 from state.schema import AgentState, DataIssue, ErrorRecord, ProfilerState, VizEvent
 
 MAX_ROWS_PER_EVENT = 200     # keeps viz events small on large datasets
@@ -125,8 +126,9 @@ def fallback_summary(row_count: int, column_count: int, issues: list[DataIssue])
 
 def _get_llm(model: str):
     """Isolated so tests monkeypatch exactly this (locked decision #4).
-    temperature=0: the summary should be as repeatable as possible."""
-    return ChatOpenAI(model=model, temperature=0).with_structured_output(ProfileSynthesis)
+    method="function_calling": the most widely supported structured-output mode,
+    so it works on both GitHub Models and the OpenAI API."""
+    return make_chat_model(model).with_structured_output(ProfileSynthesis, method="function_calling")
 
 
 def synthesize_summary(issues, row_count, column_count, column_stats, llm) -> str:
