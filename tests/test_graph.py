@@ -1,55 +1,51 @@
 """
-tests/test_graph.py
+tests/test_graph.py — graph structure and routing tests.
 
-Tests for the graph skeleton. Uses placeholder nodes (no LLM calls).
-Run: pytest tests/test_graph.py -v
+Environment: LOCAL (Mac). LLM mocked via tests/conftest.py.
 """
-
+import pandas as pd
 import pytest
+
 from main import build_graph, run_pipeline
-from state.schema import make_initial_state
+
+
+@pytest.fixture
+def csv_path(tmp_path):
+    # A real, clean file: from Day 2 the Profiler actually loads the dataset,
+    # so "fake.csv" would now (correctly) produce a load error.
+    path = tmp_path / "tiny.csv"
+    pd.DataFrame({
+        "age": [25.0, 30.0, 35.0, 40.0],
+        "city": ["Pune", "Mumbai", "Delhi", "Pune"],
+    }).to_csv(path, index=False)
+    return str(path)
 
 
 def test_graph_builds_without_error():
-    """The graph should compile without exceptions."""
-    graph = build_graph()
-    assert graph is not None
+    assert build_graph() is not None
 
 
-def test_graph_runs_end_to_end():
-    """
-    With placeholder nodes, the graph should run start-to-finish
-    and return a final state with all expected keys.
-    """
-    result = run_pipeline(
-        dataset_path="data/raw/fake.csv",   # file doesn't need to exist yet
-        dataset_name="test_run",
-    )
-
-    # Should have completed
-    assert result["analyst"]["run_complete"] is True
+def test_graph_runs_end_to_end(csv_path):
+    result = run_pipeline(dataset_path=csv_path, dataset_name="test_run")
     assert result["profiler"]["run_complete"] is True
+    assert result["analyst"]["run_complete"] is True
 
 
-def test_critic_placeholder_accepts_and_does_not_loop():
-    """
-    Placeholder Critic always returns 'accept'.
-    Verify the graph exits after 1 round, not stuck in a loop.
-    """
-    result = run_pipeline("fake.csv", "loop_test")
-    assert result["critic"]["total_rounds"] == 1
+def test_critic_runs_once_per_step_without_looping(csv_path):
+    # The Critic is ONE shared node reviewing every pipeline step, so with the
+    # always-accept placeholder it runs exactly once per step: no redo loops.
+    # (The old assertion `total_rounds == 1` predates the extra steps.)
+    result = run_pipeline(csv_path, "loop_test")
+    steps = result["metadata"]["pipeline_steps_run"]
+    assert len(steps) == len(set(steps))
+    assert result["critic"]["total_rounds"] == len(steps)
 
 
-def test_viz_events_are_accumulated():
-    """
-    Each placeholder agent emits one VizEvent.
-    With 4 agents, we should have at least 4 events.
-    """
-    result = run_pipeline("fake.csv", "viz_test")
+def test_viz_events_are_accumulated(csv_path):
+    result = run_pipeline(csv_path, "viz_test")
     assert len(result["visualization_events"]) >= 4
 
 
-def test_errors_list_is_empty_on_clean_run():
-    """No errors should be recorded in a placeholder run."""
-    result = run_pipeline("fake.csv", "error_test")
+def test_errors_list_is_empty_on_clean_run(csv_path):
+    result = run_pipeline(csv_path, "error_test")
     assert result["errors"] == []
