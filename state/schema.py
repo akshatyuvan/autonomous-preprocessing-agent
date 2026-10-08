@@ -173,61 +173,54 @@ class AnalystState(TypedDict):
     retrieved_sources: list[dict]      # what was fetched from knowledge base
     rag_collection: str                # which ChromaDB collection was queried
 
-class EncodingDecision(TypedDict):
-    decision_id: str
-    column: str
-    method: Literal["one_hot", "ordinal", "target_encoding", "no_action"]
+class StageDecision(TypedDict):
+    """
+    One decision of a registry-driven stage (encoder, scaler, imbalance_handler,
+    feature_selector). Same shape as CleaningDecision, so ONE Critic can review any stage.
+    """
+    decision_id: str                # e.g. "scale_r1_002"
+    issue_id: Optional[str]         # None: these stages act on columns, not Profiler issues
+    column: str                     # for imbalance_handler: the target column
+    action: str                     # a key of that stage's registry (plain str, see CleaningDecision)
+    parameters: dict[str, Any]
     justification: str
     status: Literal["proposed", "applied", "rejected", "redo_requested"]
     redo_count: int
+    chosen_by: Literal["llm", "fallback"]
+    stats: dict[str, Any]           # strategy stats + column "before"/"after" summaries
+    error: Optional[str]
+
+
+# Older names kept as aliases so existing imports keep working.
+EncodingDecision = ScalingDecision = ImbalanceDecision = FeatureSelectionDecision = StageDecision
+
 
 class EncodingState(TypedDict):
     run_complete: bool
-    decisions: Annotated[list[EncodingDecision], operator.add]
+    current_round: int
+    decisions: list[StageDecision]  # plain list: nested reducers are ignored
     dataset_snapshot_path: Optional[str]
 
-
-class ScalingDecision(TypedDict):
-    decision_id: str
-    column: str
-    method: Literal["standard", "minmax", "robust", "no_action"]
-    justification: str
-    status: Literal["proposed", "applied", "rejected", "redo_requested"]
-    redo_count: int
 
 class ScalingState(TypedDict):
     run_complete: bool
-    decisions: Annotated[list[ScalingDecision], operator.add]
+    current_round: int
+    decisions: list[StageDecision]
     dataset_snapshot_path: Optional[str]
 
-
-class ImbalanceDecision(TypedDict):
-    decision_id: str
-    technique: Literal["smote", "smote_nc", "borderline_smote", "adasyn", "smote_tomek", "class_weights", "no_action"]
-    justification: str
-    class_distribution_before: dict[str, int]
-    class_distribution_after: dict[str, int]
-    status: Literal["proposed", "applied", "rejected", "redo_requested"]
-    redo_count: int
 
 class ImbalanceState(TypedDict):
     run_complete: bool
-    user_opted_in: bool          # always check this before running
-    decisions: Annotated[list[ImbalanceDecision], operator.add]
+    current_round: int
+    user_opted_in: bool             # the orchestrator only routes here when requested
+    decisions: list[StageDecision]
     dataset_snapshot_path: Optional[str]
 
 
-class FeatureSelectionDecision(TypedDict):
-    decision_id: str
-    column: str
-    action: Literal["keep", "drop_low_variance", "drop_correlated", "drop_low_mutual_info"]
-    justification: str
-    status: Literal["proposed", "applied", "rejected", "redo_requested"]
-    redo_count: int
-
 class FeatureSelectorState(TypedDict):
     run_complete: bool
-    decisions: Annotated[list[FeatureSelectionDecision], operator.add]
+    current_round: int
+    decisions: list[StageDecision]
     dataset_snapshot_path: Optional[str]
 
 # ---------------------------------------------------------
@@ -393,24 +386,28 @@ def make_initial_state(
         ),
         encoder=EncodingState(
             run_complete=False,
+            current_round=0,
             decisions=[],
-            dataset_snapshot_path=None
+            dataset_snapshot_path=None,
         ),
         scaler=ScalingState(
             run_complete=False,
+            current_round=0,
             decisions=[],
-            dataset_snapshot_path=None
+            dataset_snapshot_path=None,
         ),
         imbalance_handler=ImbalanceState(
             run_complete=False,
+            current_round=0,
             user_opted_in=requested_steps["imbalance_handling"],
             decisions=[],
             dataset_snapshot_path=None,
         ),
         feature_selector=FeatureSelectorState(
             run_complete=False,
+            current_round=0,
             decisions=[],
-            dataset_snapshot_path=None
+            dataset_snapshot_path=None,
         ),
         critic=CriticState(
             verdicts=[],

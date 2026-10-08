@@ -31,15 +31,41 @@ import config
 from agents.critic_policy import POLICY_TEXT
 from agents.evidence import build_evidence
 from agents.llm_factory import make_chat_model
-from agents.registries import CLEANING_REGISTRY
 from state.schema import AgentState, CriticState, CriticVerdict, ErrorRecord, VizEvent
 
-# Which registry describes each stage's strategies. Stages are added here as they are built.
-STAGE_REGISTRIES = {"cleaner": CLEANING_REGISTRY}
+from agents.registries import (
+    CLEANING_REGISTRY, ENCODING_REGISTRY, FEATURE_SELECTION_REGISTRY, IMBALANCE_REGISTRY,
+    SCALING_REGISTRY,
+)
 
 MAX_ROW_LOSS = 0.30   # removing >30% of rows in ONE step is never a routine fix
 ROW_LOSS_EXEMPT_ISSUES = {"duplicate_rows"}  # removing rows IS the fix for duplicates
 
+
+# Which registry describes each stage's strategies.
+STAGE_REGISTRIES = {
+    "cleaner": CLEANING_REGISTRY,
+    "encoder": ENCODING_REGISTRY,
+    "scaler": SCALING_REGISTRY,
+    "imbalance_handler": IMBALANCE_REGISTRY,
+    "feature_selector": FEATURE_SELECTION_REGISTRY,
+}
+# The LLM judges only stages with a written policy, a labelled dataset and a MEASURED
+# accuracy: cleaning. The other stages are gated by deterministic invariants instead,
+# so no unmeasured LLM judgment can stop (or wave through) a run.
+LLM_JUDGED_STAGES = {"cleaner"}
+
+
+def invariant_check(decision: dict) -> Optional[str]:
+    """Deterministic gate for non-cleaning stages. Returns a reject reason or None."""
+    stats = decision.get("stats") or {}
+    before, after = stats.get("before") or {}, stats.get("after") or {}
+    if (stats.get("rows_after") or 0) < (stats.get("rows_before") or 0):
+        return "this stage must never remove rows"
+    if after.get("present") and (after.get("missing") or 0) > (before.get("missing") or 0):
+        return (f"introduced {(after.get('missing') or 0) - (before.get('missing') or 0)} "
+                f"new missing value(s)")
+    return None
 
 class DecisionJudgment(BaseModel):
     """The ONLY thing the Critic LLM produces, per decision."""
@@ -161,7 +187,7 @@ def critic_node(state: AgentState) -> dict:
     errors: list[ErrorRecord] = []
 
     retriever = None
-    if decisions:
+    if decisions and agent in LLM_JUDGED_STAGES:
         try:
             retriever = _get_retriever()
         except Exception as exc:
@@ -179,9 +205,13 @@ def critic_node(state: AgentState) -> dict:
             issue = issues_by_id.get(d.get("issue_id"))
             label = f"{d['action']} on {d['column']}"
             rule = hard_check(d, issue)
+            if rule is None and agent not in LLM_JUDGED_STAGES:
+                rule = invariant_check(d)
             if rule:
                 rejections.append((d["decision_id"], f"{label}: {rule}"))
                 continue
+            if agent not in LLM_JUDGED_STAGES:
+                continue  # passed the deterministic gate; no LLM judgment for this stage
             description = registry.get(d["action"], {}).get("description", "")
             evidence = build_evidence(d, issue, description)
             try:

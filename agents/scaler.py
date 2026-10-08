@@ -1,29 +1,19 @@
 """
-agents/scaler.py
-Placeholder. Real implementation: Day 8.
+agents/scaler.py -- Scaling stage: puts numeric features on comparable scales.
+All logic lives in agents/stage_runner.py; this file only DESCRIBES the stage.
 """
-from datetime import datetime, timezone
-from state.schema import AgentState, ScalingState, VizEvent
-import uuid
+from agents.registries import SCALING_REGISTRY
+from agents.stage_runner import StageSpec, run_registry_stage, scalable_columns
+from state.schema import AgentState
+
+SPEC = StageSpec(
+    name="scaler",
+    id_prefix="scale",
+    registry=SCALING_REGISTRY,
+    targets=scalable_columns,
+    purpose="Put each numeric feature on a scale suited to its distribution.",
+)
+
 
 def scaler_node(state: AgentState) -> dict:
-    print("[Scaler] Running (placeholder)")
-
-    event = VizEvent(
-        event_id=str(uuid.uuid4()),
-        agent="scaler",
-        event_type="round_complete",
-        payload={"message": "Scaler placeholder complete."},
-        timestamp=datetime.now(timezone.utc).isoformat(),
-    )
-
-    updated_metadata = dict(state["metadata"])
-    updated_metadata["current_active_agent"] = "scaler"
-    if "scaler" not in updated_metadata["pipeline_steps_run"]:
-        updated_metadata["pipeline_steps_run"] = updated_metadata["pipeline_steps_run"] + ["scaler"]
-
-    return {
-        "scaler": ScalingState(run_complete=True, decisions=[], dataset_snapshot_path=None),
-        "metadata": updated_metadata,
-        "visualization_events": [event],
-    }
+    return run_registry_stage(state, SPEC)

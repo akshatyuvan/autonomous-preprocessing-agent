@@ -61,3 +61,18 @@ def _no_retrieval_in_critic(monkeypatch):
     # Even if .env sets CRITIC_RETRIEVAL=true, tests never build the real store
     # (which would download an embedding model).
     monkeypatch.setattr("agents.critic._get_retriever", lambda: None)
+
+
+class _FakeStageLLM:
+    """Picks the FIRST allowed option for any registry-driven stage."""
+
+    def invoke(self, messages):
+        from agents.stage_runner import StageChoice
+        payload = json.loads(messages[-1][1])
+        return StageChoice(strategy=payload["allowed_strategies"][0]["key"],
+                           justification="[fake] first allowed option")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_llm_in_stages(monkeypatch):
+    monkeypatch.setattr("agents.stage_runner._get_llm", lambda *args, **kwargs: _FakeStageLLM())

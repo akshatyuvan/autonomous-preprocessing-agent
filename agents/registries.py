@@ -1,90 +1,111 @@
 """
-agents/registries.py
+agents/registries.py -- technique registries, one per preprocessing stage.
 
-Technique registries — one per preprocessing step.
-Each entry describes ONE available technique: when it applies,
-what it needs, and a human-readable description the LLM can reason over.
+Each entry is ONE technique:
+  name / applies_when / description  -> written for the LLM (it never sees "apply")
+  apply                              -> the function that executes it
+  requires (stage registries)        -> preconditions checked in Python before the LLM
+                                        sees the option (names = agents/stage_runner.REQUIREMENTS)
+  handles  (cleaning registry)       -> which Profiler issue types it fixes
 
-DESIGN RULE: Agents read from these registries to decide what to propose.
-Agents NEVER hardcode "if column is numeric, use mean imputation" logic
-directly in agent code. Instead they ask: "given this registry and this
-column's characteristics, which entry fits best?"
+DESIGN RULE: agents never hard-code "if numeric, use X". They filter a registry and
+let the LLM choose from what fits. Adding a technique = ONE entry here; no stage, graph
+or prompt code changes. (A technique with a brand-new KIND of precondition also needs
+one predicate added to REQUIREMENTS.)
 
-WHY THIS MATTERS: Adding a new technique later (e.g. a new SMOTE variant
-published next year) means adding ONE dict entry here. Zero changes to
-agents/imbalance_handler.py itself. This is what answers the interview
-question "what happens when a better technique gets published?"
+ORDER MATTERS: when the LLM's choice is unusable, the fallback takes the first entry
+that fits, so each registry lists its most conservative applicable option first.
 """
 from agents import cleaning_strategies as cs
+from agents import stage_strategies as ss
+
+NO_ACTION = {
+    "name": "No action",
+    "applies_when": "The column is already in good shape for this step",
+    "description": "Leaves the data unchanged.",
+    "requires": [],
+    "needs_column": False,
+    "apply": cs.no_action,
+}
+
 # ---------------------------------------------------------
-# IMBALANCE HANDLING REGISTRY
+# IMBALANCE HANDLING REGISTRY  (dataset-level: the "column" is the target)
 # ---------------------------------------------------------
 
 IMBALANCE_REGISTRY = {
+    "class_weights": {
+        "name": "Class Weights",
+        "applies_when": "Imbalance present but synthetic samples are risky (small dataset, sensitive domain)",
+        "requires": [],
+        "description": "No resampling: reweights the loss so minority-class errors cost more.",
+        "apply": ss.class_weights,
+    },
     "smote": {
         "name": "SMOTE",
         "applies_when": "Binary or multiclass imbalance, all features numeric",
         "requires": ["all_numeric_features"],
-        "description": "Synthetic Minority Oversampling — generates synthetic minority samples via interpolation between neighbors.",
+        "description": "Generates synthetic minority samples by interpolating between neighbours.",
+        "apply": ss.smote,
     },
     "smote_nc": {
         "name": "SMOTE-NC",
-        "applies_when": "Imbalance present AND dataset has both categorical and continuous features",
+        "applies_when": "Imbalance AND the dataset has both categorical and continuous features",
         "requires": ["mixed_feature_types"],
-        "description": "SMOTE variant for mixed categorical+continuous data.",
+        "description": "SMOTE variant for mixed categorical + continuous data.",
+        "apply": ss.smote_nc,
     },
     "borderline_smote": {
         "name": "Borderline-SMOTE",
         "applies_when": "Imbalance with many minority samples near the decision boundary",
         "requires": ["all_numeric_features"],
-        "description": "Focuses synthetic sample generation near the class boundary rather than uniformly.",
+        "description": "Generates synthetic samples near the class boundary rather than uniformly.",
+        "apply": ss.borderline_smote,
     },
     "adasyn": {
         "name": "ADASYN",
         "applies_when": "Imbalance with non-uniform minority class density",
         "requires": ["all_numeric_features"],
         "description": "Adaptively generates more synthetic samples in harder-to-learn regions.",
+        "apply": ss.adasyn,
     },
     "smote_tomek": {
         "name": "SMOTE + Tomek Links",
-        "applies_when": "Imbalance combined with noisy/overlapping class boundaries",
+        "applies_when": "Imbalance combined with noisy or overlapping class boundaries",
         "requires": ["all_numeric_features"],
-        "description": "SMOTE oversampling followed by Tomek link cleaning to remove ambiguous samples.",
+        "description": "SMOTE oversampling followed by Tomek-link cleaning of ambiguous samples.",
+        "apply": ss.smote_tomek,
     },
-    "class_weights": {
-        "name": "Class Weights",
-        "applies_when": "Imbalance present but synthetic sample generation is risky (small dataset, sensitive domain)",
-        "requires": [],
-        "description": "No resampling — reweights the loss function so the model penalizes minority-class errors more.",
-    },
+    "no_action": NO_ACTION,
 }
-
 
 # ---------------------------------------------------------
 # ENCODING REGISTRY
 # ---------------------------------------------------------
 
 ENCODING_REGISTRY = {
-    "one_hot": {
-        "name": "One-Hot Encoding",
-        "applies_when": "Low-cardinality categorical column (few unique values), no inherent order",
-        "requires": ["categorical", "low_cardinality"],
-        "description": "Creates a binary column per category.",
-    },
     "ordinal": {
         "name": "Ordinal Encoding",
         "applies_when": "Categorical column with a natural order (e.g. low/medium/high)",
         "requires": ["categorical", "has_order"],
         "description": "Maps categories to integers preserving rank order.",
+        "apply": ss.ordinal,
+    },
+    "one_hot": {
+        "name": "One-Hot Encoding",
+        "applies_when": "Low-cardinality categorical column (few unique values), no inherent order",
+        "requires": ["categorical", "low_cardinality"],
+        "description": "Creates a binary column per category.",
+        "apply": ss.one_hot,
     },
     "target_encoding": {
         "name": "Target Encoding",
         "applies_when": "High-cardinality categorical column where one-hot would create too many columns",
         "requires": ["categorical", "high_cardinality", "target_column_present"],
         "description": "Replaces each category with the mean target value for that category.",
+        "apply": ss.target_encoding,
     },
+    "no_action": NO_ACTION,
 }
-
 
 # ---------------------------------------------------------
 # SCALING REGISTRY
@@ -96,65 +117,60 @@ SCALING_REGISTRY = {
         "applies_when": "Feature is roughly normally distributed, no extreme outliers",
         "requires": ["numeric"],
         "description": "Centers to mean 0, scales to unit variance.",
+        "apply": ss.standard_scale,
     },
     "minmax": {
         "name": "MinMaxScaler",
         "applies_when": "Feature needs to be bounded in a fixed range (e.g. for neural nets)",
         "requires": ["numeric"],
-        "description": "Scales feature to a fixed range, typically [0, 1].",
+        "description": "Scales the feature to the range [0, 1].",
+        "apply": ss.minmax_scale,
     },
     "robust": {
         "name": "RobustScaler",
         "applies_when": "Feature has significant outliers",
         "requires": ["numeric"],
-        "description": "Uses median and IQR instead of mean/std — robust to outliers.",
+        "description": "Uses median and IQR instead of mean/std, so outliers don't dominate.",
+        "apply": ss.robust_scale,
     },
     "no_action": {
-        "name": "No Scaling",
-        "applies_when": "Downstream model is tree-based (Random Forest, XGBoost) — scaling not needed",
-        "requires": [],
-        "description": "Tree-based models split on raw thresholds, scaling has no effect.",
+        **NO_ACTION,
+        "applies_when": "Downstream model is tree-based (Random Forest, XGBoost): scaling has no effect",
     },
 }
 
-
 # ---------------------------------------------------------
-# FEATURE SELECTION REGISTRY
+# FEATURE SELECTION REGISTRY  ("keep" first: dropping is never the default)
 # ---------------------------------------------------------
 
 FEATURE_SELECTION_REGISTRY = {
+    "no_action": {**NO_ACTION, "name": "Keep", "applies_when": "The feature carries useful information"},
     "drop_low_variance": {
         "name": "Variance Threshold",
         "applies_when": "Feature has near-zero variance (almost constant across all rows)",
         "requires": ["numeric"],
-        "description": "Drops features that carry almost no information because they barely vary.",
+        "description": "Drops a feature that barely varies; refuses if variance is not near zero.",
+        "apply": ss.drop_low_variance,
     },
     "drop_correlated": {
         "name": "Correlation Dropping",
-        "applies_when": "Feature is highly correlated (>0.9) with another retained feature",
+        "applies_when": "Feature is highly correlated (|r| > 0.9) with another retained feature",
         "requires": ["numeric"],
-        "description": "Drops redundant features that duplicate information already captured.",
+        "description": "Drops a redundant feature; refuses if no correlation exceeds 0.9.",
+        "apply": ss.drop_correlated,
     },
     "drop_low_mutual_info": {
         "name": "Mutual Information Ranking",
         "applies_when": "Feature has very low mutual information with the target column",
-        "requires": ["target_column_present"],
-        "description": "Drops features that show little statistical relationship with the prediction target.",
+        "requires": ["numeric", "target_column_present"],
+        "description": "Drops a feature unrelated to the target; refuses if MI is not low.",
+        "apply": ss.drop_low_mutual_info,
     },
 }
 
-
 # ---------------------------------------------------------
-# CLEANING REGISTRY
+# CLEANING REGISTRY  (issue-driven; used by agents/cleaner.py)
 # ---------------------------------------------------------
-# Unlike the four registries above, each entry here also stores the function
-# that APPLIES the technique ("apply"). That is what makes resume bullet 1
-# literally true: a new technique = one entry here, and agents/dispatch.py,
-# the Cleaner node and the graph do not change.
-#
-# "handles" lists the DataIssue.issue_type values the technique can fix. The
-# Cleaner shows the LLM only the options whose "handles" match the issue.
-# "applies_when" and "description" are written FOR the LLM; it never sees "apply".
 
 CLEANING_REGISTRY = {
     "drop_duplicates": {

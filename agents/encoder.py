@@ -1,29 +1,19 @@
 """
-agents/encoder.py
-Placeholder. Real implementation: Day 7.
+agents/encoder.py -- Encoding stage: turns text/categorical columns into numbers.
+All logic lives in agents/stage_runner.py; this file only DESCRIBES the stage.
 """
-from datetime import datetime, timezone
-from state.schema import AgentState, EncodingState, VizEvent
-import uuid
+from agents.registries import ENCODING_REGISTRY
+from agents.stage_runner import StageSpec, run_registry_stage, text_columns
+from state.schema import AgentState
+
+SPEC = StageSpec(
+    name="encoder",
+    id_prefix="enc",
+    registry=ENCODING_REGISTRY,
+    targets=text_columns,
+    purpose="Turn each text/categorical column into numbers a model can use.",
+)
+
 
 def encoder_node(state: AgentState) -> dict:
-    print("[Encoder] Running (placeholder)")
-
-    event = VizEvent(
-        event_id=str(uuid.uuid4()),
-        agent="encoder",
-        event_type="round_complete",
-        payload={"message": "Encoder placeholder complete."},
-        timestamp=datetime.now(timezone.utc).isoformat(),
-    )
-
-    updated_metadata = dict(state["metadata"])
-    updated_metadata["current_active_agent"] = "encoder"
-    if "encoder" not in updated_metadata["pipeline_steps_run"]:
-        updated_metadata["pipeline_steps_run"] = updated_metadata["pipeline_steps_run"] + ["encoder"]
-
-    return {
-        "encoder": EncodingState(run_complete=True, decisions=[], dataset_snapshot_path=None),
-        "metadata": updated_metadata,
-        "visualization_events": [event],
-    }
+    return run_registry_stage(state, SPEC)

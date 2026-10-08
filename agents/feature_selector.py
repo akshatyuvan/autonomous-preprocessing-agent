@@ -1,29 +1,19 @@
 """
-agents/feature_selector.py
-Placeholder. Real implementation: Day 10.
+agents/feature_selector.py -- Feature selection stage: removes uninformative features.
+All logic lives in agents/stage_runner.py; this file only DESCRIBES the stage.
 """
-from datetime import datetime, timezone
-from state.schema import AgentState, FeatureSelectorState, VizEvent
-import uuid
+from agents.registries import FEATURE_SELECTION_REGISTRY
+from agents.stage_runner import StageSpec, numeric_columns, run_registry_stage
+from state.schema import AgentState
+
+SPEC = StageSpec(
+    name="feature_selector",
+    id_prefix="feat",
+    registry=FEATURE_SELECTION_REGISTRY,
+    targets=numeric_columns,
+    purpose="Keep each feature unless it is constant, redundant, or unrelated to the target.",
+)
+
 
 def feature_selector_node(state: AgentState) -> dict:
-    print("[FeatureSelector] Running (placeholder)")
-
-    event = VizEvent(
-        event_id=str(uuid.uuid4()),
-        agent="feature_selector",
-        event_type="round_complete",
-        payload={"message": "Feature selector placeholder complete."},
-        timestamp=datetime.now(timezone.utc).isoformat(),
-    )
-
-    updated_metadata = dict(state["metadata"])
-    updated_metadata["current_active_agent"] = "feature_selector"
-    if "feature_selector" not in updated_metadata["pipeline_steps_run"]:
-        updated_metadata["pipeline_steps_run"] = updated_metadata["pipeline_steps_run"] + ["feature_selector"]
-
-    return {
-        "feature_selector": FeatureSelectorState(run_complete=True, decisions=[], dataset_snapshot_path=None),
-        "metadata": updated_metadata,
-        "visualization_events": [event],
-    }
+    return run_registry_stage(state, SPEC)
