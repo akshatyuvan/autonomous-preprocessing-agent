@@ -49,3 +49,29 @@ def test_viz_events_are_accumulated(csv_path):
 def test_errors_list_is_empty_on_clean_run(csv_path):
     result = run_pipeline(csv_path, "error_test")
     assert result["errors"] == []
+
+
+class _AlwaysRejectCritic:
+    def invoke(self, messages):
+        from agents.critic import DecisionJudgment
+        return DecisionJudgment(verdict="reject", reason="[fake] always reject")
+
+
+def test_repeated_rejection_halts_before_the_next_stage(tmp_path, monkeypatch):
+    from tests.test_cleaner import _write_messy_csv
+    csv = tmp_path / "messy.csv"
+    _write_messy_csv(csv)
+    monkeypatch.setattr("agents.critic._get_llm", lambda *a, **k: _AlwaysRejectCritic())
+    result = run_pipeline(str(csv), "halt_test")
+    assert result["critic"]["halted"] is True
+    assert result["critic"]["rounds_per_agent"] == {"cleaner": 3}
+    assert result["cleaner"]["current_round"] == 3
+    assert "encoder" not in result["metadata"]["pipeline_steps_run"]
+    assert result["analyst"]["run_complete"] is False
+
+
+def test_unloadable_dataset_stops_the_run(tmp_path):
+    result = run_pipeline(str(tmp_path / "does_not_exist.csv"), "missing_test")
+    assert result["metadata"]["pipeline_steps_run"] == []
+    assert result["analyst"]["run_complete"] is False
+    assert result["errors"][0]["error_type"] == "dataset_load_error"

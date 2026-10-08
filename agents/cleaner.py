@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field, field_validator
 import config
 from agents.detectors import PLACEHOLDER_TOKENS
 from agents.dispatch import StrategyNotApplicableError, apply_strategy, options_for
+from agents.evidence import summarize_column
 from agents.llm_factory import make_chat_model
 from agents.profiler import load_dataset
 from agents.registries import CLEANING_REGISTRY
@@ -187,6 +188,9 @@ def clean_issue(df: pd.DataFrame, issue: DataIssue, llm, column_stats: dict,
                 # failure of the LLM, counted separately from malformed output.
                 error = f"not_applicable: {exc}"
             continue
+        # Column statistics before and after THIS decision: the Critic's evidence.
+        stats = {**stats, "before": summarize_column(df, column),
+                 "after": summarize_column(new_df, column)}
         if key == llm_key and choice is not None:
             return _decision(decision_id, issue, key, params, choice.justification,
                              redo_count, "llm", stats, None), new_df

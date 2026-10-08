@@ -13,8 +13,6 @@ But as your graph grows you get:
 
 Nested TypedDicts give you:
 - One sub-dict per agent → clear ownership, easy to reason about
-- Pydantic-style validation at the edges
-- LangGraph's reducer system works cleanly per sub-key
 - When you add a new agent later, you add one new key — nothing else breaks
 
 LANGGRAPH STATE BASICS (learn this once, use it everywhere):
@@ -22,7 +20,9 @@ LANGGRAPH STATE BASICS (learn this once, use it everywhere):
 - Each node returns a PARTIAL dict — only the keys it changed.
 - LangGraph merges partial returns back into the full state automatically.
 - `Annotated[list, operator.add]` means "append to this list" instead of replace.
-  Use it for logs, history, issues — anything accumulating across multiple steps.
+  IMPORTANT: this only works on TOP-LEVEL keys (errors, visualization_events).
+  Inside a nested sub-dict it is ignored: returning "cleaner": {...} replaces the
+  whole sub-dict, so agents must carry their own history forward explicitly.
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ class ProfilerState(TypedDict):
 class CleaningDecision(TypedDict):
     """
     One cleaning action chosen and applied by the Cleaning agent.
-    Must include justification -- this is what the Critic evaluates.
+    The Critic evaluates its stats (before/after), not its justification.
     """
     decision_id: str                # "clean_r2_003" = round 2, 3rd issue: unique across redos
     issue_id: str                   # links back to DataIssue.issue_id
@@ -84,7 +84,7 @@ class CleaningDecision(TypedDict):
     # vocabulary, and it is enforced at runtime by agents/dispatch.py.
     action: str
     parameters: dict[str, Any]      # e.g. {"fill_value": 0, "placeholder_tokens": [...]}
-    justification: str              # WHY this action -- what the Critic reads
+    justification: str              # the Cleaner LLM's reason (logged, not shown to the Critic)
     status: Literal[
         "proposed",
         "applied",
@@ -93,18 +93,15 @@ class CleaningDecision(TypedDict):
     ]
     redo_count: int                 # how many earlier Cleaner rounds were rejected
     chosen_by: Literal["llm", "fallback"]  # fallback = LLM down, malformed, or unfitting choice
-    stats: dict[str, Any]           # what the strategy reported (rows dropped, values imputed...)
+    stats: dict[str, Any]           # strategy stats + column "before"/"after" summaries
     error: Optional[str]            # why the LLM's choice was NOT used, if it wasn't
 
 
 class CleanerState(TypedDict):
     """
     Output produced by the Cleaning agent across (potentially multiple) rounds.
-
-    `decisions` is a PLAIN list on purpose. LangGraph reducers like
-    Annotated[list, operator.add] only apply to TOP-LEVEL state keys. Inside a
-    nested sub-dict they are ignored and the whole "cleaner" dict is replaced.
-    So cleaner_node carries the history forward itself: old decisions + new ones.
+    `decisions` is a PLAIN list: nested reducers are ignored (see module docstring),
+    so cleaner_node carries the history forward itself: old decisions + new ones.
     """
     current_round: int
     decisions: list[CleaningDecision]
@@ -113,16 +110,21 @@ class CleanerState(TypedDict):
 
 class CriticVerdict(TypedDict):
     """
-    The Critic's evaluation of one or more CleaningDecisions.
+    The Critic's verdict on ONE attempt of ONE stage.
     This is the signal that drives the conditional edge in LangGraph.
     """
     verdict_id: str
+    agent: str                      # which stage was reviewed, e.g. "cleaner"
+    attempt: int                    # that stage's attempt number (1 = first try)
     decision_ids_reviewed: list[str]
-    verdict: Literal["accept", "reject", "partial_accept"]
-    reasoning: str                  # streamed live in the UI
-    distribution_ok: bool           # did distributions stay reasonable?
-    model_score_delta: Optional[float]  # quick downstream check (Day 5+)
-    confidence: float               # 0.0-1.0, drives the arc in the UI
+    rejected_decision_ids: list[str]
+    verdict: Literal["accept", "reject"]
+    reasoning: str                  # fed back to the stage on a redo
+    distribution_ok: bool
+    model_score_delta: Optional[float]  # planned: quick downstream model check (not built)
+    confidence: float               # share of decisions actually judged (not unverified)
+    unverified_decisions: int       # LLM output unusable -> let through, counted, logged
+
 
 class APIResponse(TypedDict):
     """
@@ -139,15 +141,20 @@ class APIResponse(TypedDict):
     total_rounds: int
     errors: list[ErrorRecord]
 
+
 class CriticState(TypedDict):
     """
-    Accumulated output of the Critic across all rounds.
-    Uses operator.add so verdict history is preserved for the Analyst.
+    Accumulated output of the Critic across all stages and rounds.
+    `verdicts` is a PLAIN list (nested reducers are ignored): critic_node
+    appends to it explicitly.
     """
-    verdicts: Annotated[list[CriticVerdict], operator.add]
+    verdicts: list[CriticVerdict]
     current_verdict: Optional[CriticVerdict]  # latest one, for routing
-    total_rounds: int
-    max_rounds: int                 # safety cap -- prevents infinite redo loops
+    total_rounds: int               # total reviews across ALL stages (for traces)
+    max_rounds: int                 # max attempts PER STAGE before the run halts
+    rounds_per_agent: dict[str, int]  # attempts reviewed per stage -- the cap is per stage
+    halted: bool                    # True -> critic_router sends the graph to END
+    halt_reason: Optional[str]
 
 
 class Insight(TypedDict):
@@ -163,7 +170,6 @@ class AnalystState(TypedDict):
     run_complete: bool
     insights: list[Insight]
     analysis_summary: str
-    # NEW: RAG retrieved sources that grounded the analysis
     retrieved_sources: list[dict]      # what was fetched from knowledge base
     rag_collection: str                # which ChromaDB collection was queried
 
@@ -235,7 +241,7 @@ class AgentState(TypedDict):
     Design rules:
     1. `input` and analyst are top-level exit points -- easy to find.
     2. Each agent owns exactly one sub-dict. No agent writes to another's.
-    3. `metadata` holds config/session info: readable, not mutable by agents.
+    3. `metadata` holds config/session info.
     4. `errors` uses operator.add so any node can append without overwriting.
     5. `visualization_events` is the bus for the frontend. Agents push events;
        the viz layer reads them. Clean separation of concerns.
@@ -247,10 +253,10 @@ class AgentState(TypedDict):
     # Per-agent namespaces
     profiler: ProfilerState
     cleaner: CleanerState
-    encoder: EncodingState           # NEW
-    scaler: ScalingState             # NEW
-    imbalance_handler: ImbalanceState  # NEW
-    feature_selector: FeatureSelectorState  # NEW
+    encoder: EncodingState
+    scaler: ScalingState
+    imbalance_handler: ImbalanceState
+    feature_selector: FeatureSelectorState
     critic: CriticState
     analyst: AnalystState
 
@@ -260,7 +266,7 @@ class AgentState(TypedDict):
 
     # Frontend event bus (visualization layer reads this)
     visualization_events: Annotated[list[VizEvent], operator.add]
-    api_response: Optional[APIResponse]   # NEW: structured output for FastAPI
+    api_response: Optional[APIResponse]
 
 class RequestedSteps(TypedDict):
     """
@@ -281,28 +287,29 @@ class InputState(TypedDict):
     """
     dataset_path: str               # path to the raw messy CSV / parquet
     dataset_name: str               # human label for logs/UI
-    target_column: Optional[str]    # for downstream eval (Day 9+), can be None
+    target_column: Optional[str]    # for downstream eval, can be None
     requested_steps: RequestedSteps
 
 
 class MetadataState(TypedDict):
     """
-    Session-level config. Set once at invocation; agents read but don't write.
+    Session-level config. Set once at invocation; agents only update
+    current_active_agent and pipeline_steps_run.
     """
     session_id: str
     started_at: str                 # ISO timestamp
     max_critic_rounds: int          # cap for the redo loop (default 3)
     llm_model: str                  # e.g. "gpt-4o-mini" or fine-tuned model path
     chroma_collection: str          # which ChromaDB collection to query
-    rag_collection: str             # NEW: Collection 2 (analyst RAG)
-    current_active_agent: Optional[str]   # NEW: which agent is running right now
-    pipeline_steps_run: list[str]          # NEW: actual execution order (for trace + dependency notes)
+    rag_collection: str             # Collection 2 (analyst RAG)
+    current_active_agent: Optional[str]   # which agent is running right now
+    pipeline_steps_run: list[str]          # actual execution order (for trace + dependency notes)
 
 
 class ErrorRecord(TypedDict):
     """Structured error -- any node can append one of these to state['errors']."""
     agent: str                      # which agent raised this
-    error_type: str                 # e.g. "docker_timeout", "llm_parse_error"
+    error_type: str                 # e.g. "llm_fallback_used", "dataset_load_error"
     message: str
     timestamp: str
     recoverable: bool               # can the graph continue, or must it halt?
@@ -312,7 +319,6 @@ class VizEvent(TypedDict):
     """
     Events pushed by agents for the visualization layer to consume.
     Agents don't know about the UI -- they just emit structured events.
-    The viz layer decides how to render them.
 
     cell_status values map to UI colors:
       "untouched"  -> grey
@@ -350,11 +356,6 @@ def make_initial_state(
     """
     Returns a fully-initialized AgentState with sensible defaults.
     Call this before invoking the graph -- never build state by hand in tests.
-
-    Having a single factory function means:
-    - You never forget to initialize a field (KeyError in a node = hours of debug)
-    - Tests always start from a known-good baseline
-    - Adding a new field? Add it here once; everywhere benefits immediately.
     """
     import uuid
     from datetime import datetime, timezone
@@ -370,7 +371,6 @@ def make_initial_state(
             datetime_engineering=True,
         )
 
-
     return AgentState(
         input=InputState(
             dataset_path=dataset_path,
@@ -379,50 +379,53 @@ def make_initial_state(
             requested_steps=requested_steps,
         ),
         profiler=ProfilerState(
-            run_complete=False, 
-            row_count=0, 
+            run_complete=False,
+            row_count=0,
             column_count=0,
-            issues=[], 
-            profile_summary="", 
+            issues=[],
+            profile_summary="",
             column_stats={},
         ),
         cleaner=CleanerState(
-            current_round=0, 
-            decisions=[], 
+            current_round=0,
+            decisions=[],
             dataset_snapshot_path=None
         ),
         encoder=EncodingState(
-            run_complete=False, 
-            decisions=[], 
+            run_complete=False,
+            decisions=[],
             dataset_snapshot_path=None
         ),
         scaler=ScalingState(
-            run_complete=False, 
-            decisions=[], 
+            run_complete=False,
+            decisions=[],
             dataset_snapshot_path=None
         ),
         imbalance_handler=ImbalanceState(
             run_complete=False,
             user_opted_in=requested_steps["imbalance_handling"],
-            decisions=[], 
+            decisions=[],
             dataset_snapshot_path=None,
         ),
         feature_selector=FeatureSelectorState(
-            run_complete=False, 
-            decisions=[], 
+            run_complete=False,
+            decisions=[],
             dataset_snapshot_path=None
         ),
         critic=CriticState(
-            verdicts=[], 
-            current_verdict=None, 
-            total_rounds=0, 
-            max_rounds=max_critic_rounds
+            verdicts=[],
+            current_verdict=None,
+            total_rounds=0,
+            max_rounds=max_critic_rounds,
+            rounds_per_agent={},
+            halted=False,
+            halt_reason=None,
         ),
         analyst=AnalystState(
-            run_complete=False, 
-            insights=[], 
+            run_complete=False,
+            insights=[],
             analysis_summary="",
-            retrieved_sources=[], 
+            retrieved_sources=[],
             rag_collection="data_science_knowledge_base",
         ),
         metadata=MetadataState(
