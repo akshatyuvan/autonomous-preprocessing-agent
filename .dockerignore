@@ -1,0 +1,15 @@
+# Keep the build context small, and keep secrets and local state out of the image.
+venv/
+.git/
+.env
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+data/raw/
+data/cleaned/
+data/corrupted/
+mlflow.db
+mlruns/
+mlartifacts/
+notebooks/
