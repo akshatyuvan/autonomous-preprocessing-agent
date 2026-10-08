@@ -1,0 +1,31 @@
+(venv) akshatyuvan@Akshat-Mac autonomous-preprocessing-agent % python main.py
+
+============================================================
+Starting pipeline for: smoke_test
+Session: a2b544e1-e7f0-4655-9a2a-173e4b394867
+============================================================
+
+[Profiler] Running on: smoke_test
+[Profiler] 8 issue(s) found
+[Cleaner] Round 1
+[Cleaner] 8 decision(s) applied
+[Critic] Reviewing cleaner (attempt 1)
+[Cleaner] Round 2
+[Cleaner] 8 decision(s) applied
+[Critic] Reviewing cleaner (attempt 2)
+[Cleaner] Round 3
+[Cleaner] 8 decision(s) applied
+[Critic] Reviewing cleaner (attempt 3)
+[Critic] HALT: cleaner was rejected on attempt 3 of 3; the run stops so a rejected transformation never reaches the next stage. Last reason: Rejected -- clean_r3_003: cast_numeric on monthly_spend: The transformation caused a significant skew in the distribution of monthly_spend, with a skew of -0.0303, which is not a plausible value for a financial metric. | clean_r3_004: standardize_category on gender: Maps every variant to the most frequent spelling of that category, turning 6 categories into 2, with 12 values changed and 4 categories lost | clean_r3_005: drop_outlier_rows on age: The transformation removed 1 outlier row, but the column skew increased from 2.4418 to -0.1254, indicating a potential loss of information. | clean_r3_006: drop_outlier_rows on annual_income: The transformation removed 14 rows with a significant impact on the column | clean_r3_007: impute_median on annual_income: Fills missing values with the column median, turning 44 missing values into 0, which may not address the issue of 15.1% missing values | clean_r3_008: impute_median on monthly_spend: Fills missing values with the column median, but the skew of the column (-0.0413 before, -0.0414 after) is not significantly changed, indicating that the issue was not fully addressed.
+
+============================================================
+RUN HALTED: cleaner was rejected on attempt 3 of 3; the run stops so a rejected transformation never reaches the next stage. Last reason: Rejected -- clean_r3_003: cast_numeric on monthly_spend: The transformation caused a significant skew in the distribution of monthly_spend, with a skew of -0.0303, which is not a plausible value for a financial metric. | clean_r3_004: standardize_category on gender: Maps every variant to the most frequent spelling of that category, turning 6 categories into 2, with 12 values changed and 4 categories lost | clean_r3_005: drop_outlier_rows on age: The transformation removed 1 outlier row, but the column skew increased from 2.4418 to -0.1254, indicating a potential loss of information. | clean_r3_006: drop_outlier_rows on annual_income: The transformation removed 14 rows with a significant impact on the column | clean_r3_007: impute_median on annual_income: Fills missing values with the column median, turning 44 missing values into 0, which may not address the issue of 15.1% missing values | clean_r3_008: impute_median on monthly_spend: Fills missing values with the column median, but the skew of the column (-0.0413 before, -0.0414 after) is not significantly changed, indicating that the issue was not fully addressed.
+Steps run: ['cleaner']
+Viz events emitted: 39
+Errors recorded: 3
+============================================================
+
+Critic attempts per stage: {'cleaner': 3}
+- cleaner attempt 1: reject -- Rejected -- clean_r1_003: cast_numeric on monthly_spend: The transformation caused a significant skew in the distribution of monthly_spend, with a skew of -0.0303, which is not a plausible value for a financial metric. | clean_r1_004: standardize_category on gender: Maps every variant to the most fr
+- cleaner attempt 2: reject -- Rejected -- clean_r2_003: cast_numeric on monthly_spend: The transformation caused a significant skew in the distribution of monthly_spend, with a skew of -0.0284, which is not a plausible value for a financial metric. | clean_r2_006: cap_iqr on annual_income: The transformation used cap_iqr on a co
+- cleaner attempt 3: reject -- Rejected -- clean_r3_003: cast_numeric on monthly_spend: The transformation caused a significant skew in the distribution of monthly_spend, with a skew of -0.0303, which is not a plausible value for a financial metric. | clean_r3_004: standardize_category on gender: Maps every variant to the most fr

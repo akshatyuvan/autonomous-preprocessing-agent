@@ -28,6 +28,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from agents.evidence import build_evidence
+from agents.critic_policy import POLICY_TEXT
 from agents.llm_factory import make_chat_model
 from agents.registries import CLEANING_REGISTRY
 from state.schema import AgentState, CriticState, CriticVerdict, ErrorRecord, VizEvent
@@ -64,17 +65,16 @@ class DecisionJudgment(BaseModel):
         return "" if value is None else value
 
 
-SYSTEM_PROMPT = """You are the Critic: the validation gate of a data-preprocessing pipeline.
+# The policy text comes from agents/critic_policy.py, the same rules that label the
+# evaluation dataset, so the prompted baseline is told exactly what it is graded on.
+SYSTEM_PROMPT = f"""You are the Critic: the validation gate of a data-preprocessing pipeline.
 You review ONE transformation that has already been applied. You receive the data-quality issue it
-targeted, the strategy used, what changed, and statistics of the affected column BEFORE and AFTER.
-Reject when the transformation damages the data, for example:
-- mean imputation on a skewed column (|skew| > 1) or a column with outliers
-- removing many rows, or a whole column, when a less destructive strategy fits the issue
-- a conversion that turns many real values into missing
-- a shift in mean, median or std far larger than fixing the issue requires
-- a strategy that does not address the stated issue
-Accept when the issue is fixed and the column's statistics stay plausible.
-Return verdict ("accept" or "reject") and reason: one sentence citing the specific numbers."""
+targeted, the strategy used, what changed ("change"), and statistics of the affected column
+BEFORE and AFTER.
+
+{POLICY_TEXT}
+
+Return verdict ("accept" or "reject") and reason: one sentence citing the rule number and the numbers you used."""
 
 
 def _now() -> str:
