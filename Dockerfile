@@ -22,7 +22,9 @@ COPY requirements.lock.txt .
 RUN pip install -r requirements.lock.txt
 
 # Run as a non-root user: a compromised process can't modify the image's system files.
-RUN useradd --create-home app
+# chown /app itself: COPY --chown only covers copied files, and the pipeline must
+# CREATE data/cleaned/ under /app to save snapshots.
+RUN useradd --create-home app && chown app:app /app
 COPY --chown=app:app . .
 USER app
 
