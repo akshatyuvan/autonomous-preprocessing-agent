@@ -26,6 +26,10 @@ CHROMA_COLLECTION: str = os.getenv("CHROMA_COLLECTION", "data_quality_patterns")
 # Agent behaviour
 MAX_CRITIC_ROUNDS: int = int(os.getenv("MAX_CRITIC_ROUNDS", "3"))
 
+# Feed retrieved labelled cases into the Critic prompt (Step 6). Off by default:
+# building the store downloads an embedding model on first use.
+CRITIC_RETRIEVAL: bool = os.getenv("CRITIC_RETRIEVAL", "false").strip().lower() == "true"
+
 # Paths
 DATA_DIR: str = os.getenv("DATA_DIR", "data")
 RAW_DIR: str = f"{DATA_DIR}/raw"

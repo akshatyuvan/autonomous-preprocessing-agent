@@ -54,3 +54,10 @@ def _snapshots_go_to_tmp(monkeypatch, tmp_path):
 @pytest.fixture(autouse=True)
 def _no_real_llm_in_critic(monkeypatch):
     monkeypatch.setattr("agents.critic._get_llm", lambda *args, **kwargs: _FakeCriticLLM())
+
+
+@pytest.fixture(autouse=True)
+def _no_retrieval_in_critic(monkeypatch):
+    # Even if .env sets CRITIC_RETRIEVAL=true, tests never build the real store
+    # (which would download an embedding model).
+    monkeypatch.setattr("agents.critic._get_retriever", lambda: None)

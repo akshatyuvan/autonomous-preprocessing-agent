@@ -1,39 +1,40 @@
 {
-  "condition": "prompted_ollama",
+  "condition": "prompted_rag_ollama",
   "provider": "ollama",
   "model": "llama3.2:3b",
+  "retrieval": true,
   "test_file": "evaluation/data/critic_test.jsonl",
-  "total_seconds": 655.7,
+  "total_seconds": 1109.2,
   "metrics": {
     "n": 100,
     "malformed": 0,
     "malformed_rate": 0.0,
-    "accuracy": 0.59,
-    "accuracy_strict": 0.59,
-    "reject_precision": 0.509,
-    "reject_recall": 0.667,
-    "reject_f1": 0.577,
+    "accuracy": 0.65,
+    "accuracy_strict": 0.65,
+    "reject_precision": 0.569,
+    "reject_recall": 0.69,
+    "reject_f1": 0.624,
     "n_borderline": 25,
-    "accuracy_clear": 0.613,
-    "accuracy_borderline": 0.52,
+    "accuracy_clear": 0.667,
+    "accuracy_borderline": 0.6,
     "majority_baseline": {
       "label": "accept",
       "accuracy": 0.58
     },
     "confusion": {
       "actual_accept": {
-        "pred_accept": 31,
-        "pred_reject": 27,
+        "pred_accept": 36,
+        "pred_reject": 22,
         "malformed": 0
       },
       "actual_reject": {
-        "pred_accept": 14,
-        "pred_reject": 28,
+        "pred_accept": 13,
+        "pred_reject": 29,
         "malformed": 0
       }
     },
     "accuracy_lookup_rules": 1.0,
-    "accuracy_threshold_rules": 0.423,
+    "accuracy_threshold_rules": 0.507,
     "accuracy_by_rule": {
       "rule 1": {
         "n": 13,
@@ -45,7 +46,7 @@
       },
       "rule 3": {
         "n": 12,
-        "accuracy": 0.5
+        "accuracy": 0.583
       },
       "rule 4": {
         "n": 3,
@@ -57,11 +58,11 @@
       },
       "rule 7": {
         "n": 39,
-        "accuracy": 0.462
+        "accuracy": 0.564
       },
       "rule 8": {
         "n": 13,
-        "accuracy": 0.0
+        "accuracy": 0.077
       }
     }
   },
@@ -71,1200 +72,1200 @@
       "scenario": "numbers_as_text",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation is a no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 5.97,
-      "rule": "rule 1"
+      "seconds": 8.01
     },
     {
       "id": "ex_0003",
       "scenario": "missing_numeric",
       "strategy": "impute_median",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.92,
-      "rule": "rule 8"
+      "seconds": 13.16
     },
     {
       "id": "ex_0004",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation drops 15 of 159 values (9.4%) which is less than 10% of the rows, rule 7",
+      "reason": "rule 7: drop_rows_missing affected 9.4% <= 10%",
       "error": null,
-      "seconds": 7.02,
-      "rule": "rule 7"
+      "seconds": 4.07
     },
     {
       "id": "ex_0009",
       "scenario": "heavy_tail",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it is one of the allowed strategies (rule 2) and no values were changed (rule 1).",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 7.5,
-      "rule": "rule 2"
+      "seconds": 3.85
     },
     {
       "id": "ex_0013",
       "scenario": "duplicates",
       "strategy": "drop_duplicates",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation drops duplicates, which is accepted according to rule 2.",
+      "reason": "rule 2: drop_duplicates is a lossless fix, before.rows = 165, before.rows_after = 161, before.rows_before = 217, before.columns = 3, before.columns_after = 3, before.duplicate_rows = 4, before.duplicate_rows_after = 0",
       "error": null,
-      "seconds": 6.7,
-      "rule": "rule 2"
+      "seconds": 9.27
     },
     {
       "id": "ex_0018",
       "scenario": "outlier_errors",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation used no_action, which leaves the data unchanged, violating rule 1: no_action is rejected.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 10.02,
-      "rule": "rule 1"
+      "seconds": 13.62
     },
     {
       "id": "ex_0023",
       "scenario": "missing_numeric",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "only 17.1% missing, dropping loses real data, rule 3: more than 50% missing values",
       "error": null,
-      "seconds": 7.52,
-      "rule": "rule 3"
+      "seconds": 11.0
     },
     {
       "id": "ex_0024",
       "scenario": "missing_mostly",
       "strategy": "impute_mean",
       "borderline": false,
+      "rule": "rule 4",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 4: 84.4% missing, imputation invents most values",
       "error": null,
-      "seconds": 6.96,
-      "rule": "rule 4"
+      "seconds": 13.38
     },
     {
       "id": "ex_0047",
       "scenario": "missing_mostly",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "accept",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.96,
-      "rule": "rule 3"
+      "seconds": 9.05
     },
     {
       "id": "ex_0049",
       "scenario": "categories",
       "strategy": "standardize_category",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation uses the standardize_category strategy, which is accepted.",
+      "reason": "rule 2: standardize_category is a lossless fix",
       "error": null,
-      "seconds": 7.1,
-      "rule": "rule 2"
+      "seconds": 9.01
     },
     {
       "id": "ex_0069",
       "scenario": "outlier_errors",
       "strategy": "drop_outlier_rows",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "Removing rows (drop_outlier_rows) affects more than 10% of the rows (rows_before = 399, rows_after = 394) or non-missing values; otherwise it is accepted.",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 3.0% <= 10%",
       "error": null,
-      "seconds": 8.87,
-      "rule": "rule 7"
+      "seconds": 14.54
     },
     {
       "id": "ex_0070",
       "scenario": "categories",
       "strategy": "standardize_category",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation uses the standardize_category strategy, which is accepted.",
+      "reason": "rule 2: standardize_category is a lossless fix",
       "error": null,
-      "seconds": 5.49,
-      "rule": "rule 2"
+      "seconds": 9.48
     },
     {
       "id": "ex_0072",
       "scenario": "numbers_as_text",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation uses no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 4.93,
-      "rule": "rule 1"
+      "seconds": 9.21
     },
     {
       "id": "ex_0073",
       "scenario": "outlier_errors",
       "strategy": "drop_outlier_rows",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "Removing rows (drop_outlier_rows) affects more than 10% of the rows; rule 7 applies",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 1.2% <= 10%",
       "error": null,
-      "seconds": 8.18,
-      "rule": "rule 7"
+      "seconds": 15.87
     },
     {
       "id": "ex_0076",
       "scenario": "missing_mostly",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "accept",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.33,
-      "rule": "rule 3"
+      "seconds": 9.41
     },
     {
       "id": "ex_0077",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "The transformation drop_duplicates is rejected because more than 50% of the column",
+      "prediction": "accept",
+      "reason": "rule 7: cast_numeric affected 10.4% <= 10%",
       "error": null,
-      "seconds": 6.35,
-      "rule": "rule 7"
+      "seconds": 11.06
     },
     {
       "id": "ex_0080",
       "scenario": "categories",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation used no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 5.48,
-      "rule": "rule 1"
+      "seconds": 8.36
     },
     {
       "id": "ex_0084",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (227/227) and no more than 10% of the non-missing values (18/227).",
+      "reason": "rule 7: cast_numeric affected 18/227 <= 10%",
       "error": null,
-      "seconds": 7.93,
-      "rule": "rule 7"
+      "seconds": 11.04
     },
     {
       "id": "ex_0086",
       "scenario": "heavy_tail",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it is one of the allowed strategies (rule 2) and no values were changed (rule 1).",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 7.88,
-      "rule": "rule 2"
+      "seconds": 11.91
     },
     {
       "id": "ex_0097",
       "scenario": "categories",
       "strategy": "standardize_category",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used standardize_category, which is accepted (rule 2).",
+      "reason": "rule 2: standardize_category is a lossless fix",
       "error": null,
-      "seconds": 5.28,
-      "rule": "rule 2"
+      "seconds": 8.69
     },
     {
       "id": "ex_0099",
       "scenario": "dates_as_text",
       "strategy": "parse_datetime",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "accept",
-      "reason": "The transformation is accepted because it is a standardization category transformation (rule 2) and the number of rows and non-missing values affected is within the threshold (rule 7).",
+      "prediction": "reject",
+      "reason": "More than 10% of rows were lost during the conversion (rows_before - rows_after) = 400 - 400 = 0, which is within the threshold of 10%.",
       "error": null,
-      "seconds": 6.74,
-      "rule": "rule 7"
+      "seconds": 10.87
     },
     {
       "id": "ex_0102",
       "scenario": "missing_numeric",
       "strategy": "impute_mean",
       "borderline": false,
+      "rule": "rule 5",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "The transformation used impute_mean with |before.skew| = 3.3213 > 1.0, violating rule 5: |before.skew| > 1.0",
       "error": null,
-      "seconds": 5.6,
-      "rule": "rule 5"
+      "seconds": 14.7
     },
     {
       "id": "ex_0103",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (253/253) and the number of rows remains the same after the transformation.",
+      "reason": "rule 7: cast_numeric affected 36/253 <= 10%",
       "error": null,
-      "seconds": 7.43,
-      "rule": "rule 7"
+      "seconds": 10.89
     },
     {
       "id": "ex_0105",
       "scenario": "missing_categorical",
       "strategy": "impute_mode",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 4.72,
-      "rule": "rule 8"
+      "seconds": 7.99
     },
     {
       "id": "ex_0109",
       "scenario": "categories",
       "strategy": "standardize_category",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used standardize_category, which is accepted (rule 2).",
+      "reason": "rule 2: standardize_category is a lossless fix",
       "error": null,
-      "seconds": 5.59,
-      "rule": "rule 2"
+      "seconds": 8.69
     },
     {
       "id": "ex_0110",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "The transformation drop_duplicates is rejected because more than 50% of the column",
+      "prediction": "accept",
+      "reason": "rule 7: cast_numeric affected 13.1% > 10%",
       "error": null,
-      "seconds": 5.79,
-      "rule": "rule 7"
+      "seconds": 10.7
     },
     {
       "id": "ex_0113",
       "scenario": "missing_categorical",
       "strategy": "impute_constant",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "impute_constant is rejected when the fill value lies outside [before.min, before.max] of a numeric column.",
+      "reason": "More than 50% of the column",
       "error": null,
-      "seconds": 5.69,
-      "rule": "rule 8"
+      "seconds": 7.77
     },
     {
       "id": "ex_0118",
       "scenario": "missing_numeric",
       "strategy": "impute_median",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.54,
-      "rule": "rule 8"
+      "seconds": 11.44
     },
     {
       "id": "ex_0119",
       "scenario": "missing_numeric",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "only 20.1% missing, dropping loses real data, rule 3: more than 50% missing is required",
       "error": null,
-      "seconds": 5.05,
-      "rule": "rule 3"
+      "seconds": 10.07
     },
     {
       "id": "ex_0124",
       "scenario": "missing_numeric",
       "strategy": "impute_mean",
       "borderline": false,
+      "rule": "rule 5",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 4: more than 50% of the column",
       "error": null,
-      "seconds": 5.38,
-      "rule": "rule 5"
+      "seconds": 12.53
     },
     {
       "id": "ex_0129",
       "scenario": "missing_categorical",
       "strategy": "impute_constant",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "impute_constant when more than 50% of the values are missing (6/189) is rejected (rule 4)",
+      "reason": "More than 50% of the column",
       "error": null,
-      "seconds": 5.79,
-      "rule": "rule 8"
+      "seconds": 7.9
     },
     {
       "id": "ex_0130",
       "scenario": "heavy_tail",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it is one of the allowed strategies (rule 2) and no values were changed (rule 1).",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 7.37,
-      "rule": "rule 2"
+      "seconds": 12.05
     },
     {
       "id": "ex_0134",
       "scenario": "categories",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation used no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 4.99,
-      "rule": "rule 1"
+      "seconds": 8.28
     },
     {
       "id": "ex_0135",
       "scenario": "categories",
       "strategy": "standardize_category",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used standardize_category, which is accepted (rule 2).",
+      "reason": "rule 2: standardize_category is a lossless fix",
       "error": null,
-      "seconds": 6.13,
-      "rule": "rule 2"
+      "seconds": 9.5
     },
     {
       "id": "ex_0138",
       "scenario": "heavy_tail",
       "strategy": "drop_outlier_rows",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
-      "prediction": "reject",
-      "reason": "The transformation drop_outlier_rows is rejected because it affects more than 10% of the rows (24/191) and non-missing values (24/191).",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 10.3% > 10%",
       "error": null,
-      "seconds": 8.36,
-      "rule": "rule 7"
+      "seconds": 14.11
     },
     {
       "id": "ex_0140",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation drops_rows_missing is accepted because it affects more than 10% of the rows (rows_before = 316, rows_after = 295) and the percentage of missing values is within the threshold (6.6%)",
+      "reason": "rule 7: drop_rows_missing affected 10% <= 10%",
       "error": null,
-      "seconds": 8.72,
-      "rule": "rule 7"
+      "seconds": 12.21
     },
     {
       "id": "ex_0144",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": false,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation drops_rows_missing is accepted because it affects more than 10% of the rows (130/170) and less than 50% of the rows are missing (40/170), rule 7.",
+      "reason": "rule 7: drop_rows_missing affected 23.5% > 10%",
       "error": null,
-      "seconds": 8.18,
-      "rule": "rule 7"
+      "seconds": 12.75
     },
     {
       "id": "ex_0156",
       "scenario": "numbers_as_text",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation is a no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 5.09,
-      "rule": "rule 1"
+      "seconds": 9.84
     },
     {
       "id": "ex_0165",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (279/279) and the number of coerced to missing values (26) is less than 50% of the rows (26/279), rule 7.",
+      "reason": "rule 7: cast_numeric affected 9.0% <= 10%",
       "error": null,
-      "seconds": 8.58,
-      "rule": "rule 7"
+      "seconds": 11.54
     },
     {
       "id": "ex_0171",
       "scenario": "missing_categorical",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
-      "prediction": "accept",
-      "reason": "The transformation drops 37 of 249 values (14.9%) which is more than 10% of the rows, so rule 7 is applied.",
+      "prediction": "reject",
+      "reason": "affected 14.9% > 10%",
       "error": null,
-      "seconds": 6.43,
-      "rule": "rule 7"
+      "seconds": 8.04
     },
     {
       "id": "ex_0177",
       "scenario": "heavy_tail",
       "strategy": "drop_outlier_rows",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "The transformation drop_outlier_rows affects more than 10% of the rows (rows_before = 231, rows_after = 218) and loses non-missing values.",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 9.5% <= 10%",
       "error": null,
-      "seconds": 8.22,
-      "rule": "rule 7"
+      "seconds": 13.74
     },
     {
       "id": "ex_0180",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation drops 25 of 227 values (11.0%) which is less than 50% of the values, rule 7",
+      "reason": "rule 7: drop_rows_missing affected 11.0% <= 10%",
       "error": null,
-      "seconds": 7.2,
-      "rule": "rule 7"
+      "seconds": 12.04
     },
     {
       "id": "ex_0182",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": false,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation drops 26 of 165 values (15.8%) which is less than 50% of the values, so rule 7 is applied.",
+      "reason": "rule 7: drop_rows_missing affected 13.6% <= 10%",
       "error": null,
-      "seconds": 7.27,
-      "rule": "rule 7"
+      "seconds": 13.45
     },
     {
       "id": "ex_0184",
       "scenario": "duplicates",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation uses no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 4.82,
-      "rule": "rule 1"
+      "seconds": 7.47
     },
     {
       "id": "ex_0188",
       "scenario": "duplicates",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation uses no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 4.49,
-      "rule": "rule 1"
+      "seconds": 6.92
     },
     {
       "id": "ex_0191",
       "scenario": "categories",
       "strategy": "standardize_category",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used standardize_category, which is accepted (rule 2).",
+      "reason": "rule 2: standardize_category is a lossless fix",
       "error": null,
-      "seconds": 5.19,
-      "rule": "rule 2"
+      "seconds": 8.62
     },
     {
       "id": "ex_0195",
       "scenario": "missing_mostly",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "accept",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.26,
-      "rule": "rule 3"
+      "seconds": 8.7
     },
     {
       "id": "ex_0200",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "The transformation drop_duplicates is rejected because more than 50% of the column",
+      "prediction": "accept",
+      "reason": "rule 7: cast_numeric affected 10.4% > 10%",
       "error": null,
-      "seconds": 5.84,
-      "rule": "rule 7"
+      "seconds": 11.36
     },
     {
       "id": "ex_0201",
       "scenario": "outlier_errors",
       "strategy": "drop_outlier_rows",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "Removing rows (drop_outlier_rows) affects more than 10% of the rows; rule 7 applies",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 3.7% <= 10%",
       "error": null,
-      "seconds": 6.84,
-      "rule": "rule 7"
+      "seconds": 13.37
     },
     {
       "id": "ex_0202",
       "scenario": "dates_as_text",
       "strategy": "parse_datetime",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "accept",
-      "reason": "The transformation is accepted because it is a standardization category transformation (rule 2) and the number of rows and non-missing values affected is within the threshold (rule 7).",
+      "prediction": "reject",
+      "reason": "More than 10% of rows were lost during the conversion (rule 7: parse_datetime affected 4.3% > 10%)",
       "error": null,
-      "seconds": 6.54,
-      "rule": "rule 7"
+      "seconds": 10.24
     },
     {
       "id": "ex_0208",
       "scenario": "missing_numeric",
       "strategy": "impute_mean",
       "borderline": true,
+      "rule": "rule 5",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 5: |before.skew| 1.2477 > 1.0",
       "error": null,
-      "seconds": 5.56,
-      "rule": "rule 5"
+      "seconds": 13.13
     },
     {
       "id": "ex_0211",
       "scenario": "outlier_errors",
       "strategy": "cap_iqr",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used cap_iqr, which is accepted when more than 50% of the column",
+      "reason": "rule 7: cap_iqr affected 6/247 < 10%",
       "error": null,
-      "seconds": 6.89,
-      "rule": "rule 7"
+      "seconds": 13.73
     },
     {
       "id": "ex_0218",
       "scenario": "heavy_tail",
       "strategy": "drop_outlier_rows",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
-      "prediction": "reject",
-      "reason": "The transformation drop_outlier_rows is rejected because it affects more than 10% of the rows (rows_before = 274, rows_after = 236) and loses values in a conversion.",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 9.5% <= 10%",
       "error": null,
-      "seconds": 8.45,
-      "rule": "rule 7"
+      "seconds": 14.01
     },
     {
       "id": "ex_0219",
       "scenario": "missing_categorical",
       "strategy": "drop_rows_missing",
       "borderline": false,
+      "rule": "rule 7",
       "label": "reject",
-      "prediction": "accept",
-      "reason": "The transformation drop_rows_missing is accepted because it affects more than 10% of the rows (rows_before = 351, rows_after = 280) and the rule 7 is applied.",
+      "prediction": "reject",
+      "reason": "rule 7: drop_rows_missing affected 13.3% > 10%",
       "error": null,
-      "seconds": 6.52,
-      "rule": "rule 7"
+      "seconds": 9.15
     },
     {
       "id": "ex_0222",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (rows_before = 160) and the number of coerced to missing values (coerced_to_missing = 15) is less than 50% of the rows (15/160 < 0.1).",
+      "reason": "rule 7: cast_numeric affected 15/160 <= 10%",
       "error": null,
-      "seconds": 9.9,
-      "rule": "rule 7"
+      "seconds": 10.93
     },
     {
       "id": "ex_0228",
       "scenario": "missing_categorical",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "only 8.0% missing, dropping loses real data, rule 3",
       "error": null,
-      "seconds": 4.71,
-      "rule": "rule 3"
+      "seconds": 8.17
     },
     {
       "id": "ex_0231",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": false,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (379/379) and the number of coerced to missing values (57) is less than 50% of the rows (57/379), rule 7.",
+      "reason": "rule 7: cast_numeric affected 50.1% > 10%",
       "error": null,
-      "seconds": 8.9,
-      "rule": "rule 7"
+      "seconds": 11.19
     },
     {
       "id": "ex_0233",
       "scenario": "missing_numeric",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.32,
-      "rule": "rule 3"
+      "seconds": 8.88
     },
     {
       "id": "ex_0234",
       "scenario": "missing_numeric",
       "strategy": "impute_constant",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 6: fill 49.0 outside [18.91, 113.19]",
       "error": null,
-      "seconds": 5.67,
-      "rule": "rule 8"
+      "seconds": 13.39
     },
     {
       "id": "ex_0242",
       "scenario": "missing_categorical",
       "strategy": "impute_constant",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "impute_constant is rejected when the fill value lies outside [before.min, before.max] of a numeric column.",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.92,
-      "rule": "rule 8"
+      "seconds": 7.89
     },
     {
       "id": "ex_0246",
       "scenario": "dates_as_text",
       "strategy": "parse_datetime",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "accept",
-      "reason": "The transformation meets the rule 7, as only 5 out of 243 rows were coerced to missing, which is less than 10% of the rows.",
+      "prediction": "reject",
+      "reason": "More than 10% of rows were lost during the conversion (rule 7: parse_datetime affected 1.2% <= 10%)",
       "error": null,
-      "seconds": 6.77,
-      "rule": "rule 7"
+      "seconds": 10.04
     },
     {
       "id": "ex_0251",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (322 / 322 = 1.0) and the number of coerced to missing values (17) is less than 50% of the rows (17 / 322 = 0.053).",
+      "reason": "rule 7: cast_numeric affected 7.7% <= 10%",
       "error": null,
-      "seconds": 9.27,
-      "rule": "rule 7"
+      "seconds": 11.72
     },
     {
       "id": "ex_0252",
       "scenario": "missing_categorical",
       "strategy": "impute_mode",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the values are missing (15.0%) and the strategy impute_mode is used, which is rejected when more than 50% of the values are missing (rule 4)",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 7.27,
-      "rule": "rule 8"
+      "seconds": 7.83
     },
     {
       "id": "ex_0254",
       "scenario": "outlier_errors",
       "strategy": "drop_outlier_rows",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "Removing rows (drop_outlier_rows) affects more than 10% of the rows (rows_before = 352, rows_after = 343) or non-missing values; otherwise it is accepted.",
+      "prediction": "accept",
+      "reason": "rule 7: drop_outlier_rows affected 3.0% <= 10%",
       "error": null,
-      "seconds": 9.42,
-      "rule": "rule 7"
+      "seconds": 13.71
     },
     {
       "id": "ex_0258",
       "scenario": "missing_numeric",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "only 15.1% missing, dropping loses real data, rule 3",
       "error": null,
-      "seconds": 5.67,
-      "rule": "rule 3"
+      "seconds": 9.53
     },
     {
       "id": "ex_0261",
       "scenario": "missing_categorical",
       "strategy": "impute_constant",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "impute_constant when more than 50% of the values are missing (25/366) and the fill value lies outside [before.min, before.max] of a numeric column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 6.68,
-      "rule": "rule 8"
+      "seconds": 7.92
     },
     {
       "id": "ex_0263",
       "scenario": "dates_as_text",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation is a no_action with 207 non-missing values looking like dates stored as text, which does not meet the rule 1. no_action is rejected.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 6.22,
-      "rule": "rule 1"
+      "seconds": 7.66
     },
     {
       "id": "ex_0265",
       "scenario": "categories",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
-      "prediction": "accept",
-      "reason": "The transformation drops the category column, which has more than 50% of its values missing (before.missing / before.rows = 0.0), so it meets the rule 3 condition.",
+      "prediction": "reject",
+      "reason": "rule 3: only 0% missing, dropping loses real data",
       "error": null,
-      "seconds": 6.98,
-      "rule": "rule 3"
+      "seconds": 9.88
     },
     {
       "id": "ex_0268",
       "scenario": "heavy_tail",
       "strategy": "cap_iqr",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used cap_iqr, which is accepted when more than 50% of the column",
+      "reason": "rule 7: cap_iqr affected 7.9% <= 10%",
       "error": null,
-      "seconds": 7.01,
-      "rule": "rule 7"
+      "seconds": 14.77
     },
     {
       "id": "ex_0269",
       "scenario": "heavy_tail",
       "strategy": "cap_iqr",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used cap_iqr, which is accepted when more than 50% of the column",
+      "reason": "rule 7: cap_iqr affected 10.0% <= 10%",
       "error": null,
-      "seconds": 6.81,
-      "rule": "rule 7"
+      "seconds": 13.65
     },
     {
       "id": "ex_0274",
       "scenario": "missing_mostly",
       "strategy": "impute_mean",
       "borderline": false,
+      "rule": "rule 4",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 4: 54.9% missing, imputation invents most values",
       "error": null,
-      "seconds": 5.18,
-      "rule": "rule 4"
+      "seconds": 13.46
     },
     {
       "id": "ex_0287",
       "scenario": "duplicates",
       "strategy": "drop_duplicates",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation drops duplicates, which is accepted according to rule 2.",
+      "reason": "rule 2: drop_duplicates is a lossless fix",
       "error": null,
-      "seconds": 4.72,
-      "rule": "rule 2"
+      "seconds": 7.75
     },
     {
       "id": "ex_0298",
       "scenario": "outlier_errors",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it affects only 10 rows (10/347) and no values are lost or changed.",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 7.27,
-      "rule": "rule 2"
+      "seconds": 11.86
     },
     {
       "id": "ex_0302",
       "scenario": "numbers_as_text",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation is a no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 5.64,
-      "rule": "rule 1"
+      "seconds": 7.56
     },
     {
       "id": "ex_0305",
       "scenario": "outlier_errors",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 5.33,
-      "rule": "rule 1"
+      "seconds": 11.48
     },
     {
       "id": "ex_0311",
       "scenario": "heavy_tail",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it is one of the allowed strategies (rule 2) and no values were changed (rule 1).",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 7.41,
-      "rule": "rule 2"
+      "seconds": 12.0
     },
     {
       "id": "ex_0314",
       "scenario": "missing_mostly",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "accept",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.21,
-      "rule": "rule 3"
+      "seconds": 9.32
     },
     {
       "id": "ex_0321",
       "scenario": "heavy_tail",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it only adds a boolean column and changes no values, rule 2.",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 6.94,
-      "rule": "rule 2"
+      "seconds": 12.12
     },
     {
       "id": "ex_0330",
       "scenario": "missing_numeric",
       "strategy": "impute_median",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
-      "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "prediction": "accept",
+      "reason": "rule 8: impute_median with 11.6% missing",
       "error": null,
-      "seconds": 5.78,
-      "rule": "rule 8"
+      "seconds": 12.57
     },
     {
       "id": "ex_0331",
       "scenario": "dates_as_text",
       "strategy": "parse_datetime",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
-      "prediction": "accept",
-      "reason": "The transformation meets the rule 7, as only 6.14% of the rows (18/292) are affected, which is less than 10%.",
+      "prediction": "reject",
+      "reason": "More than 10% of rows are affected by the transformation (10% of 292 rows = 29.2 rows), which exceeds the threshold of 10% set by rule 7.",
       "error": null,
-      "seconds": 6.68,
-      "rule": "rule 7"
+      "seconds": 11.04
     },
     {
       "id": "ex_0340",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": true,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation cast_numeric is accepted because it affects more than 50% of the rows (228/228) and the number of rows before and after the transformation are the same, rule 7 is not applicable.",
+      "reason": "rule 7: cast_numeric affected 19/228 <= 10%",
       "error": null,
-      "seconds": 7.98,
-      "rule": "rule 7"
+      "seconds": 10.52
     },
     {
       "id": "ex_0345",
       "scenario": "duplicates",
       "strategy": "drop_duplicates",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation drops duplicates, which is accepted according to rule 2.",
+      "reason": "rule 2: drop_duplicates is a lossless fix, before.rows = 396, before.rows_after = 354, before.rows_before = 396, before.columns = 3, before.duplicate_rows = 42, after.rows = 354, after.columns = 3, after.duplicate_rows = 0, change.rows_before = 396, change.rows_after = 354, change.columns_before = 3, change.columns_after = 3, change.duplicates_removed = 42",
       "error": null,
-      "seconds": 4.67,
-      "rule": "rule 2"
+      "seconds": 15.02
     },
     {
       "id": "ex_0348",
       "scenario": "missing_categorical",
       "strategy": "impute_constant",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "impute_constant when more than 50% of the values are missing (22/234) and the fill value lies outside [before.min, before.max] of a numeric column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 6.72,
-      "rule": "rule 8"
+      "seconds": 9.35
     },
     {
       "id": "ex_0359",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation drops 28 of 242 values (11.6%) which is less than 50% of the values, so rule 7 is applied.",
+      "reason": "rule 7: drop_rows_missing affected 10% < 10%",
       "error": null,
-      "seconds": 7.52,
-      "rule": "rule 7"
+      "seconds": 13.42
     },
     {
       "id": "ex_0361",
       "scenario": "missing_categorical",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
-      "prediction": "accept",
-      "reason": "The transformation drops 33 of 265 values (12.5%) in the category column, which is less than 50% of the values, so rule 7 is applied.",
+      "prediction": "reject",
+      "reason": "rule 7: drop_rows_missing affected 12.5% > 10%",
       "error": null,
-      "seconds": 6.54,
-      "rule": "rule 7"
+      "seconds": 8.63
     },
     {
       "id": "ex_0362",
       "scenario": "heavy_tail",
       "strategy": "cap_iqr",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation used cap_iqr, which is accepted when more than 50% of the column",
+      "reason": "rule 7: cap_iqr affected 7.9% <= 10%",
       "error": null,
-      "seconds": 6.89,
-      "rule": "rule 7"
+      "seconds": 13.54
     },
     {
       "id": "ex_0363",
       "scenario": "outlier_errors",
       "strategy": "cap_iqr",
       "borderline": false,
+      "rule": "rule 7",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation used cap_iqr, which is accepted when more than 50% of the column",
+      "reason": "rule 7: cap_iqr affected 7.0% <= 10%",
       "error": null,
-      "seconds": 6.89,
-      "rule": "rule 7"
+      "seconds": 13.94
     },
     {
       "id": "ex_0367",
       "scenario": "missing_mostly",
       "strategy": "impute_mean",
       "borderline": false,
+      "rule": "rule 4",
       "label": "reject",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 4: 74.8% missing, imputation invents most values",
       "error": null,
-      "seconds": 5.66,
-      "rule": "rule 4"
+      "seconds": 15.8
     },
     {
       "id": "ex_0370",
       "scenario": "missing_numeric",
       "strategy": "impute_median",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 5: |before.skew| > 1.0; before.skew = 1.1744",
       "error": null,
-      "seconds": 5.41,
-      "rule": "rule 8"
+      "seconds": 13.56
     },
     {
       "id": "ex_0374",
       "scenario": "numbers_as_text",
       "strategy": "cast_numeric",
       "borderline": false,
+      "rule": "rule 7",
       "label": "reject",
-      "prediction": "reject",
-      "reason": "The transformation drop_duplicates is rejected because more than 50% of the column",
+      "prediction": "accept",
+      "reason": "rule 7: cast_numeric affected 62/346 <= 10%",
       "error": null,
-      "seconds": 5.45,
-      "rule": "rule 7"
+      "seconds": 11.04
     },
     {
       "id": "ex_0378",
       "scenario": "missing_numeric",
       "strategy": "impute_mean",
       "borderline": false,
+      "rule": "rule 5",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "rule 4: 3.2% missing values, imputation invents most values",
       "error": null,
-      "seconds": 5.6,
-      "rule": "rule 5"
+      "seconds": 13.19
     },
     {
       "id": "ex_0379",
       "scenario": "categories",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation used no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 5.34,
-      "rule": "rule 1"
+      "seconds": 8.4
     },
     {
       "id": "ex_0380",
       "scenario": "heavy_tail",
       "strategy": "cap_iqr",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation used cap_iqr, which is accepted when more than 50% of the column",
+      "reason": "rule 7: cap_iqr affected 42/329 <= 10%",
       "error": null,
-      "seconds": 6.88,
-      "rule": "rule 7"
+      "seconds": 13.51
     },
     {
       "id": "ex_0386",
       "scenario": "missing_numeric",
       "strategy": "impute_median",
       "borderline": false,
+      "rule": "rule 8",
       "label": "accept",
       "prediction": "reject",
-      "reason": "More than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.59,
-      "rule": "rule 8"
+      "seconds": 12.6
     },
     {
       "id": "ex_0387",
       "scenario": "missing_mostly",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "accept",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "more than 50% of the column",
       "error": null,
-      "seconds": 5.53,
-      "rule": "rule 3"
+      "seconds": 9.35
     },
     {
       "id": "ex_0392",
       "scenario": "missing_numeric",
       "strategy": "drop_rows_missing",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation drops_rows_missing is accepted because it affects more than 10% of the rows (190/219) and less than 50% of the rows are missing (29/219).",
+      "reason": "rule 7: drop_rows_missing affected 13.2% <= 10%",
       "error": null,
-      "seconds": 8.05,
-      "rule": "rule 7"
+      "seconds": 13.63
     },
     {
       "id": "ex_0393",
       "scenario": "missing_categorical",
       "strategy": "drop_column",
       "borderline": false,
+      "rule": "rule 3",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation drop_column is rejected because more than 50% of the column",
+      "reason": "only 21.3% missing, dropping loses real data, rule 3: more than 50% of the column",
       "error": null,
-      "seconds": 4.51,
-      "rule": "rule 3"
+      "seconds": 33.15
     },
     {
       "id": "ex_0398",
       "scenario": "duplicates",
       "strategy": "no_action",
       "borderline": false,
+      "rule": "rule 1",
       "label": "reject",
       "prediction": "reject",
-      "reason": "The transformation uses no_action, which leaves the data-quality issue unfixed.",
+      "reason": "rule 1: no_action leaves the issue unfixed",
       "error": null,
-      "seconds": 4.94,
-      "rule": "rule 1"
+      "seconds": 7.12
     },
     {
       "id": "ex_0399",
       "scenario": "outlier_errors",
       "strategy": "flag_outlier",
       "borderline": false,
+      "rule": "rule 2",
       "label": "accept",
       "prediction": "accept",
-      "reason": "The transformation flag_outlier is accepted because it affects only 2.8% of the rows (rows_before - rows_after) / rows_before = 9 / 325.",
+      "reason": "rule 2: flag_outlier is a lossless fix",
       "error": null,
-      "seconds": 10.48,
-      "rule": "rule 2"
+      "seconds": 11.64
     },
     {
       "id": "ex_0400",
       "scenario": "heavy_tail",
       "strategy": "drop_outlier_rows",
       "borderline": true,
+      "rule": "rule 7",
       "label": "reject",
       "prediction": "accept",
-      "reason": "The transformation drop_outlier_rows is accepted because it affects less than 10% of the rows (rows_before - rows_after) = 28/204 = 0.137, which is less than 10%.",
+      "reason": "rule 7: drop_outlier_rows affected 3.0% <= 10%",
       "error": null,
-      "seconds": 9.39,
-      "rule": "rule 7"
+      "seconds": 13.5
     }
   ]
 }

@@ -59,3 +59,16 @@ def test_run_records_malformed_output_without_crashing():
     assert rows[0]["prediction"] == "reject"
     assert rows[1]["prediction"] is None
     assert "ValueError" in rows[1]["error"]
+
+
+def test_accuracy_by_rule_splits_lookup_and_threshold_rules():
+    rows = [
+        {"label": "reject", "prediction": "reject", "borderline": False, "rule": "rule 1"},
+        {"label": "accept", "prediction": "accept", "borderline": False, "rule": "rule 2"},
+        {"label": "reject", "prediction": "accept", "borderline": True, "rule": "rule 7"},
+        {"label": "accept", "prediction": "accept", "borderline": False, "rule": "rule 7"},
+    ]
+    m = critic_metrics(rows)
+    assert m["accuracy_lookup_rules"] == 1.0
+    assert m["accuracy_threshold_rules"] == 0.5
+    assert m["accuracy_by_rule"]["rule 7"] == {"n": 2, "accuracy": 0.5}

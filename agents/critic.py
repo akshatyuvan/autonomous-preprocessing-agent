@@ -7,9 +7,9 @@ For each decision the stage made that has not been reviewed yet:
   1. Hard checks (pure Python, no LLM): missing before/after evidence, or more
      than MAX_ROW_LOSS of the rows removed in one step -> automatic reject.
   2. LLM judgment on the before/after evidence -> accept or reject + one-sentence reason.
+     With CRITIC_RETRIEVAL=true, similar labelled past cases are added to the prompt.
   3. If the LLM output is unusable (unparseable, or the model is down), the decision
-     is let through as UNVERIFIED and counted -- blocking on every bad parse of a
-     3B model would halt most runs. That rate is part of the case for fine-tuning.
+     is let through as UNVERIFIED and counted.
 
 One rejected decision rejects the whole stage. main.critic_router then redoes the
 stage, or -- once the stage has used max_rounds attempts -- the Critic sets
@@ -27,8 +27,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from agents.evidence import build_evidence
+import config
 from agents.critic_policy import POLICY_TEXT
+from agents.evidence import build_evidence
 from agents.llm_factory import make_chat_model
 from agents.registries import CLEANING_REGISTRY
 from state.schema import AgentState, CriticState, CriticVerdict, ErrorRecord, VizEvent
@@ -76,6 +77,14 @@ BEFORE and AFTER.
 
 Return verdict ("accept" or "reject") and reason: one sentence citing the rule number and the numbers you used."""
 
+# Appended only when retrieved cases are present, so the no-retrieval prompt is
+# byte-for-byte the one the Step 5 baseline was measured with.
+RETRIEVAL_NOTE = """similar_cases are past transformations reviewed under the same policy, each with its
+correct verdict and the rule that decided it. Use them to apply the policy consistently,
+but decide on THIS transformation's own numbers."""
+
+_RETRIEVER = None  # cached: building the store embeds 300 cases, so do it once per process
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -86,11 +95,24 @@ def _get_llm(model: str):
     return make_chat_model(model).with_structured_output(DecisionJudgment, method="function_calling")
 
 
+def _get_retriever():
+    """None unless CRITIC_RETRIEVAL=true. Isolated so tests can monkeypatch it."""
+    global _RETRIEVER
+    if not config.CRITIC_RETRIEVAL:
+        return None
+    if _RETRIEVER is None:
+        from vector_store.retrieval import HybridRetriever, default_embedder, load_cases
+        _RETRIEVER = HybridRetriever(load_cases(), default_embedder())
+    return _RETRIEVER
+
+
 def build_critic_messages(evidence: dict, patterns: Optional[list[str]] = None) -> list[tuple[str, str]]:
     payload: dict = {"transformation": evidence}
+    system = SYSTEM_PROMPT
     if patterns:
-        payload["similar_cases"] = patterns  # Step 6: retrieved cleaning patterns go here
-    return [("system", SYSTEM_PROMPT), ("human", json.dumps(payload, indent=2, default=str))]
+        payload["similar_cases"] = patterns
+        system = f"{SYSTEM_PROMPT}\n\n{RETRIEVAL_NOTE}"
+    return [("system", system), ("human", json.dumps(payload, indent=2, default=str))]
 
 
 def judge_with_llm(llm, evidence: dict, patterns: Optional[list[str]] = None) -> DecisionJudgment:
@@ -124,7 +146,7 @@ def critic_node(state: AgentState) -> dict:
     critic = state["critic"]
     agent = state["metadata"]["current_active_agent"] or "unknown"
 
-    # Known issue 2: the redo cap is PER STAGE, not one global counter.
+    # The redo cap is PER STAGE, not one global counter.
     rounds_per_agent = dict(critic["rounds_per_agent"])
     rounds_per_agent[agent] = rounds_per_agent.get(agent, 0) + 1
     attempt = rounds_per_agent[agent]
@@ -136,6 +158,16 @@ def critic_node(state: AgentState) -> dict:
     decisions = [d for d in stage.get("decisions", []) if d["decision_id"] not in reviewed]
     issues_by_id = {i["issue_id"]: i for i in state["profiler"]["issues"]}
     registry = STAGE_REGISTRIES.get(agent, {})
+    errors: list[ErrorRecord] = []
+
+    retriever = None
+    if decisions:
+        try:
+            retriever = _get_retriever()
+        except Exception as exc:
+            # Retrieval is an enhancement: if the store can't be built, judge without it.
+            errors.append(ErrorRecord(agent="critic", error_type="retrieval_unavailable",
+                                      message=str(exc), timestamp=_now(), recoverable=True))
 
     rejections: list[tuple[str, str]] = []
     unverified = 0
@@ -151,10 +183,12 @@ def critic_node(state: AgentState) -> dict:
                 rejections.append((d["decision_id"], f"{label}: {rule}"))
                 continue
             description = registry.get(d["action"], {}).get("description", "")
+            evidence = build_evidence(d, issue, description)
             try:
+                patterns = retriever.retrieve(evidence) if retriever is not None else None
                 if llm is None:
                     llm = _get_llm(state["metadata"]["llm_model"])
-                judgment = judge_with_llm(llm, build_evidence(d, issue, description))
+                judgment = judge_with_llm(llm, evidence, patterns)
             except Exception:
                 unverified += 1  # logged and counted; does not block the run
                 continue
@@ -193,7 +227,6 @@ def critic_node(state: AgentState) -> dict:
         unverified_decisions=unverified,
     )
 
-    errors = []
     if unverified:
         errors.append(ErrorRecord(
             agent="critic", error_type="critic_llm_unverified",
@@ -202,7 +235,7 @@ def critic_node(state: AgentState) -> dict:
 
     return {
         "critic": CriticState(
-            verdicts=critic["verdicts"] + [verdict],  # known issue 1: carry history forward
+            verdicts=critic["verdicts"] + [verdict],  # carry history forward explicitly
             current_verdict=verdict,
             total_rounds=critic["total_rounds"] + 1,
             max_rounds=critic["max_rounds"],

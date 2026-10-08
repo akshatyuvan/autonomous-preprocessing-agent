@@ -1,7 +1,8 @@
 """
 evaluation/metrics.py -- Critic evaluation metrics, as pure functions (unit-tested).
 
-Each row: {"label": "accept"|"reject", "prediction": "accept"|"reject"|None, "borderline": bool}
+Each row: {"label": "accept"|"reject", "prediction": "accept"|"reject"|None,
+           "borderline": bool, optionally "rule": "rule 7"}
 prediction None = malformed (unparseable output, or no tool call).
 
 Two views of malformed output:
@@ -9,11 +10,15 @@ Two views of malformed output:
     (critic_node lets unjudged decisions through, unverified);
   - accuracy_strict counts it as WRONG, so a lucky "accept" can't hide a bad parse.
 "Reject" is the positive class: catching bad transformations is the gate's job,
-and reject PRECISION is what decides whether a noisy gate halts good runs.
+and reject PRECISION decides whether a noisy gate halts good runs.
 """
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
+
+# Rules 1-2 of agents/critic_policy.py depend only on the strategy NAME;
+# rules 3-8 need numbers compared against a threshold.
+LOOKUP_RULES = {"rule 1", "rule 2"}
 
 
 def _ratio(part: float, whole: float) -> Optional[float]:
@@ -42,7 +47,7 @@ def critic_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     n_accept = sum(l == "accept" for l, _ in raw)
     malformed = sum(p is None for _, p in raw)
 
-    return {
+    result: dict[str, Any] = {
         "n": n,
         "malformed": malformed,
         "malformed_rate": _ratio(malformed, n),
@@ -69,3 +74,14 @@ def critic_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
             for actual in ("accept", "reject")
         },
     }
+
+    if rows and all(r.get("rule") for r in rows):
+        rules = sorted({r["rule"] for r in rows}, key=lambda s: int(s.split()[-1]))
+        result["accuracy_lookup_rules"] = accuracy_where(lambda r: r["rule"] in LOOKUP_RULES)
+        result["accuracy_threshold_rules"] = accuracy_where(lambda r: r["rule"] not in LOOKUP_RULES)
+        result["accuracy_by_rule"] = {
+            rule: {"n": sum(r["rule"] == rule for r in rows),
+                   "accuracy": accuracy_where(lambda r, rule=rule: r["rule"] == rule)}
+            for rule in rules
+        }
+    return result
