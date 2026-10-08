@@ -72,43 +72,43 @@ class ProfilerState(TypedDict):
 
 class CleaningDecision(TypedDict):
     """
-    One cleaning action proposed and applied by the Cleaning agent.
-    Must include justification — this is what the Critic evaluates.
+    One cleaning action chosen and applied by the Cleaning agent.
+    Must include justification -- this is what the Critic evaluates.
     """
-    decision_id: str                # e.g. "decision_001"
+    decision_id: str                # "clean_r2_003" = round 2, 3rd issue: unique across redos
     issue_id: str                   # links back to DataIssue.issue_id
-    column: str
-    action: Literal[
-        "impute_mean",
-        "impute_median",
-        "impute_mode",
-        "impute_constant",
-        "drop_rows",
-        "drop_column",
-        "type_cast",
-        "standardize_category",
-        "flag_outlier",
-        "no_action"
-    ]
-    parameters: dict[str, Any]      # e.g. {"fill_value": 0} or {"target_type": "int"}
-    justification: str              # WHY this action — what the Critic reads
+    column: str                     # "__all_columns__" for row-level issues (duplicates)
+    # A CLEANING_REGISTRY key. Deliberately a plain str, NOT a Literal: with a
+    # Literal, every new technique would also need a schema edit, so "one registry
+    # entry, no other code changes" would be false. The registry IS the allowed
+    # vocabulary, and it is enforced at runtime by agents/dispatch.py.
+    action: str
+    parameters: dict[str, Any]      # e.g. {"fill_value": 0, "placeholder_tokens": [...]}
+    justification: str              # WHY this action -- what the Critic reads
     status: Literal[
         "proposed",
         "applied",
         "rejected",
         "redo_requested"
     ]
-    redo_count: int                 # how many times Critic sent this back
+    redo_count: int                 # how many earlier Cleaner rounds were rejected
+    chosen_by: Literal["llm", "fallback"]  # fallback = LLM down, malformed, or unfitting choice
+    stats: dict[str, Any]           # what the strategy reported (rows dropped, values imputed...)
+    error: Optional[str]            # why the LLM's choice was NOT used, if it wasn't
 
 
 class CleanerState(TypedDict):
     """
     Output produced by the Cleaning agent across (potentially multiple) rounds.
-    `decisions` uses operator.add so each round appends, not overwrites.
+
+    `decisions` is a PLAIN list on purpose. LangGraph reducers like
+    Annotated[list, operator.add] only apply to TOP-LEVEL state keys. Inside a
+    nested sub-dict they are ignored and the whole "cleaner" dict is replaced.
+    So cleaner_node carries the history forward itself: old decisions + new ones.
     """
     current_round: int
-    decisions: Annotated[list[CleaningDecision], operator.add]
-    dataset_snapshot_path: Optional[str]   # path to parquet of cleaned-so-far
+    decisions: list[CleaningDecision]
+    dataset_snapshot_path: Optional[str]   # parquet of the latest cleaned dataset
 
 
 class CriticVerdict(TypedDict):

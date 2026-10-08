@@ -165,19 +165,19 @@ CLEANING_REGISTRY = {
         "needs_column": False,
         "apply": cs.drop_duplicates,
     },
-    "impute_mean": {
-        "name": "Mean imputation",
-        "handles": ["missing_values"],
-        "applies_when": "Numeric column, few missing values, roughly symmetric distribution without strong outliers",
-        "description": "Fills missing values with the column mean.",
-        "apply": cs.impute_mean,
-    },
     "impute_median": {
         "name": "Median imputation",
         "handles": ["missing_values"],
         "applies_when": "Numeric column that is skewed or has outliers, which would pull the mean",
         "description": "Fills missing values with the column median.",
         "apply": cs.impute_median,
+    },
+    "impute_mean": {
+        "name": "Mean imputation",
+        "handles": ["missing_values"],
+        "applies_when": "Numeric column, few missing values, roughly symmetric distribution without strong outliers",
+        "description": "Fills missing values with the column mean.",
+        "apply": cs.impute_mean,
     },
     "impute_mode": {
         "name": "Mode imputation",

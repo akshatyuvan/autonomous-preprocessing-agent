@@ -1,8 +1,10 @@
 """
-tests/conftest.py — shared fixtures, loaded automatically by pytest before any test.
+tests/conftest.py -- shared fixtures, loaded automatically by pytest before any test.
 
 Environment: LOCAL (Mac).
 """
+import json
+
 import pytest
 
 
@@ -14,12 +16,30 @@ class _FakeProfilerLLM:
         return ProfileSynthesis(summary="[fake] profile summary", top_concerns=[])
 
 
+class _FakeCleanerLLM:
+    """Always picks the FIRST allowed strategy: deterministic, offline, and it
+    exercises the real LLM code path (choice -> validation -> dispatch)."""
+
+    def invoke(self, messages):
+        from agents.cleaner import StrategyChoice
+        payload = json.loads(messages[-1][1])
+        return StrategyChoice(strategy=payload["allowed_strategies"][0]["key"],
+                              fill_value="", justification="[fake] first allowed option")
+
+
 @pytest.fixture(autouse=True)
 def _no_real_llm_in_profiler(monkeypatch):
-    # autouse=True applies this to EVERY test, so no test can accidentally call
-    # OpenAI (locked decision #4). Tests needing specific LLM behaviour patch
-    # _get_llm again themselves, and the later patch wins.
-    # raising=False: until Day 2 lands, agents.profiler has no _get_llm yet.
-    monkeypatch.setattr(
-        "agents.profiler._get_llm", lambda *args, **kwargs: _FakeProfilerLLM(), raising=False
-    )
+    # autouse=True applies this to EVERY test, so no test can call a real model.
+    # Tests needing specific LLM behaviour patch _get_llm again; the later patch wins.
+    monkeypatch.setattr("agents.profiler._get_llm", lambda *args, **kwargs: _FakeProfilerLLM())
+
+
+@pytest.fixture(autouse=True)
+def _no_real_llm_in_cleaner(monkeypatch):
+    monkeypatch.setattr("agents.cleaner._get_llm", lambda *args, **kwargs: _FakeCleanerLLM())
+
+
+@pytest.fixture(autouse=True)
+def _snapshots_go_to_tmp(monkeypatch, tmp_path):
+    # Without this, every test run would write parquet files into the real data/cleaned/.
+    monkeypatch.setattr("config.CLEANED_DIR", str(tmp_path / "cleaned"))

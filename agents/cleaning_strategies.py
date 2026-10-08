@@ -17,10 +17,12 @@ loudly beats quietly producing garbage that the next stage builds on.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 import pandas as pd
 
+from agents.detectors import SYMBOL_PATTERN
 from agents.dispatch import StrategyNotApplicableError
 
 Params = dict[str, Any]
@@ -172,15 +174,37 @@ def drop_duplicates(df: pd.DataFrame, column: Any, params: Params) -> Result:
 # TYPE MISMATCH
 # ---------------------------------------------------------
 
+def _coercion_guard(strategy: str, before: pd.Series, after: pd.Series, params: Params) -> int:
+    """Count values a conversion turned into missing, and refuse if it is most of them.
+
+    errors="coerce" never crashes, so a WRONG conversion (cast_numeric on a date
+    column) would "succeed" and silently wipe the column. Losing more than
+    max_coerce_share of the real values means this is the wrong conversion.
+    Judgment calls below that threshold are the Critic's job, not this guard's.
+    """
+    attempted = int(before.notna().sum())
+    coerced = int((before.notna() & after.isna()).sum())
+    max_share = float(params.get("max_coerce_share", 0.5))
+    if attempted and coerced / attempted > max_share:
+        raise StrategyNotApplicableError(
+            f"{strategy} would turn {coerced} of {attempted} values ({coerced / attempted:.0%}) "
+            "into missing; this is probably the wrong conversion for this column"
+        )
+    return coerced
+
+
 def cast_numeric(df: pd.DataFrame, column: str, params: Params) -> Result:
     out = df.copy()
     original = out[column]
     s = _blank_placeholders(original, params)
-    # errors="coerce": anything unparseable becomes NaN instead of crashing...
-    converted = pd.to_numeric(s, errors="coerce")
-    # ...which is only acceptable because we COUNT it. Silent coercion would hide
-    # data loss; this number is what lets the Critic reject a destructive cast.
-    coerced = int((s.notna() & converted.isna()).sum())
+    # Strip currency symbols, thousands separators, % and spaces with the SAME
+    # pattern the detector used, so "$1,200" becomes 1200 instead of missing.
+    # Caveat worth knowing: "45%" becomes 45, not 0.45.
+    stripped = s.map(lambda v: re.sub(SYMBOL_PATTERN, "", v) if isinstance(v, str) else v)
+    # errors="coerce": unparseable leftovers become NaN instead of crashing...
+    converted = pd.to_numeric(stripped, errors="coerce")
+    # ...acceptable only because the guard counts them and refuses mass loss.
+    coerced = _coercion_guard("cast_numeric", s, converted, params)
     out[column] = converted
     return out, {
         "placeholders_blanked": int((original.notna() & s.isna()).sum()),
@@ -198,11 +222,10 @@ def parse_datetime(df: pd.DataFrame, column: str, params: Params) -> Result:
     # format="mixed" parses each value on its own, so mixed date formats in one
     # column are accepted. The caller can pass a strict format in params instead.
     converted = pd.to_datetime(s, errors="coerce", format=params.get("format", "mixed"))
-    coerced = int((s.notna() & converted.isna()).sum())
+    coerced = _coercion_guard("parse_datetime", s, converted, params)
     out[column] = converted
     return out, {"coerced_to_missing": coerced}
-
-
+    
 # ---------------------------------------------------------
 # INCONSISTENT CATEGORY
 # ---------------------------------------------------------

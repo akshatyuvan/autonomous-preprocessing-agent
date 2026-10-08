@@ -189,3 +189,21 @@ def test_dispatcher_reports_shape_changes():
     assert "joined" not in out.columns
     assert stats["columns_before"] == 4 and stats["columns_after"] == 3
     assert stats["rows_before"] == stats["rows_after"] == 8
+
+
+def test_cast_numeric_strips_currency_and_thousands():
+    df = pd.DataFrame({"p": ["$1,200", "₹300", "45", "7"]})
+    out, stats = run("cast_numeric", "p", df=df)
+    assert out["p"].tolist() == [1200, 300, 45, 7]
+    assert stats["coerced_to_missing"] == 0
+
+
+def test_cast_numeric_refuses_to_destroy_a_date_column():
+    with pytest.raises(StrategyNotApplicableError, match="wrong conversion"):
+        run("cast_numeric", "joined")
+
+
+def test_parse_datetime_refuses_plain_words():
+    df = pd.DataFrame({"t": ["red", "blue", "green", "red"]})
+    with pytest.raises(StrategyNotApplicableError, match="wrong conversion"):
+        run("parse_datetime", "t", df=df)
