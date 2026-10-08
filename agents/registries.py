@@ -15,7 +15,7 @@ published next year) means adding ONE dict entry here. Zero changes to
 agents/imbalance_handler.py itself. This is what answers the interview
 question "what happens when a better technique gets published?"
 """
-
+from agents import cleaning_strategies as cs
 # ---------------------------------------------------------
 # IMBALANCE HANDLING REGISTRY
 # ---------------------------------------------------------
@@ -140,5 +140,122 @@ FEATURE_SELECTION_REGISTRY = {
         "applies_when": "Feature has very low mutual information with the target column",
         "requires": ["target_column_present"],
         "description": "Drops features that show little statistical relationship with the prediction target.",
+    },
+}
+
+
+# ---------------------------------------------------------
+# CLEANING REGISTRY
+# ---------------------------------------------------------
+# Unlike the four registries above, each entry here also stores the function
+# that APPLIES the technique ("apply"). That is what makes resume bullet 1
+# literally true: a new technique = one entry here, and agents/dispatch.py,
+# the Cleaner node and the graph do not change.
+#
+# "handles" lists the DataIssue.issue_type values the technique can fix. The
+# Cleaner shows the LLM only the options whose "handles" match the issue.
+# "applies_when" and "description" are written FOR the LLM; it never sees "apply".
+
+CLEANING_REGISTRY = {
+    "drop_duplicates": {
+        "name": "Drop duplicate rows",
+        "handles": ["duplicate_rows"],
+        "applies_when": "Fully identical rows exist and each row should represent one real record",
+        "description": "Keeps the first occurrence of each identical row and removes the rest.",
+        "needs_column": False,
+        "apply": cs.drop_duplicates,
+    },
+    "impute_mean": {
+        "name": "Mean imputation",
+        "handles": ["missing_values"],
+        "applies_when": "Numeric column, few missing values, roughly symmetric distribution without strong outliers",
+        "description": "Fills missing values with the column mean.",
+        "apply": cs.impute_mean,
+    },
+    "impute_median": {
+        "name": "Median imputation",
+        "handles": ["missing_values"],
+        "applies_when": "Numeric column that is skewed or has outliers, which would pull the mean",
+        "description": "Fills missing values with the column median.",
+        "apply": cs.impute_median,
+    },
+    "impute_mode": {
+        "name": "Mode imputation",
+        "handles": ["missing_values"],
+        "applies_when": "Categorical or text column with a clearly dominant value",
+        "description": "Fills missing values with the most frequent value.",
+        "apply": cs.impute_mode,
+    },
+    "impute_constant": {
+        "name": "Constant fill",
+        "handles": ["missing_values"],
+        "applies_when": "Missingness is meaningful (e.g. fill 'Unknown') or a known domain default exists; requires params.fill_value",
+        "description": "Fills missing values with a fixed value supplied in params.",
+        "apply": cs.impute_constant,
+    },
+    "drop_rows_missing": {
+        "name": "Drop rows with missing values",
+        "handles": ["missing_values"],
+        "applies_when": "Very few rows are affected and removing them will not bias the dataset",
+        "description": "Removes the rows where this column is missing.",
+        "apply": cs.drop_rows_missing,
+    },
+    "drop_column": {
+        "name": "Drop column",
+        "handles": ["missing_values"],
+        "applies_when": "Most of the column is missing, so imputation would invent most of its values",
+        "description": "Removes the column entirely.",
+        "apply": cs.drop_column,
+    },
+    "cast_numeric": {
+        "name": "Cast to numeric",
+        "handles": ["type_mismatch"],
+        "applies_when": "Numbers are stored as text",
+        "description": "Converts text to numbers; unparseable values become missing and are counted.",
+        "apply": cs.cast_numeric,
+    },
+    "parse_datetime": {
+        "name": "Parse dates",
+        "handles": ["type_mismatch"],
+        "applies_when": "Dates are stored as text",
+        "description": "Converts text to datetimes; unparseable values become missing and are counted.",
+        "apply": cs.parse_datetime,
+    },
+    "standardize_category": {
+        "name": "Standardize category spelling",
+        "handles": ["inconsistent_category"],
+        "applies_when": "The same category appears with different case or extra spaces",
+        "description": "Maps every variant to the most frequent spelling of that category.",
+        "apply": cs.standardize_category,
+    },
+    "cap_iqr": {
+        "name": "Cap at IQR fences",
+        "handles": ["outlier"],
+        "applies_when": "Extreme values are plausible but would distort means or scaling; keeps every row",
+        "description": "Clips values to [Q1 - 1.5*IQR, Q3 + 1.5*IQR].",
+        "apply": cs.cap_iqr,
+    },
+    "drop_outlier_rows": {
+        "name": "Drop outlier rows",
+        "handles": ["outlier"],
+        "applies_when": "Extremes are clearly data errors and the dataset is large enough to lose rows",
+        "description": "Removes rows whose value lies outside the IQR fences.",
+        "apply": cs.drop_outlier_rows,
+    },
+    "flag_outlier": {
+        "name": "Flag outliers",
+        "handles": ["outlier"],
+        "applies_when": "Unclear whether extremes are real; keep values and let a model decide",
+        "description": "Adds a boolean <column>_is_outlier column and changes no values.",
+        "apply": cs.flag_outlier,
+    },
+    "no_action": {
+        "name": "No action",
+        "handles": ["missing_values", "type_mismatch", "outlier", "duplicate_rows",
+                    "inconsistent_category", "unknown"],
+        "applies_when": "The issue is negligible or every fix would destroy real signal",
+        "description": "Leaves the data unchanged.",
+        "needs_column": False,
+        "apply": cs.no_action,
     },
 }
