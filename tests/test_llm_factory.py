@@ -9,33 +9,29 @@ import agents.llm_factory as factory
 import config
 
 
-def test_github_provider_uses_github_endpoint(monkeypatch):
-    monkeypatch.setattr(config, "LLM_PROVIDER", "github")
-    monkeypatch.setattr(config, "GITHUB_TOKEN", "fake-token")
+def test_ollama_provider_uses_local_endpoint(monkeypatch):
+    monkeypatch.setattr(config, "LLM_PROVIDER", "ollama")
+    monkeypatch.setattr(config, "OLLAMA_BASE_URL", "http://localhost:11434/v1")
     llm = factory.make_chat_model("gpt-4o-mini")
-    assert llm.model_name == "openai/gpt-4o-mini"
-    assert llm.openai_api_base == factory.GITHUB_MODELS_URL
+    assert llm.openai_api_base == "http://localhost:11434/v1"
 
 
-def test_github_keeps_already_prefixed_model(monkeypatch):
-    monkeypatch.setattr(config, "LLM_PROVIDER", "github")
-    monkeypatch.setattr(config, "GITHUB_TOKEN", "fake-token")
-    assert factory.make_chat_model("openai/gpt-4o-mini").model_name == "openai/gpt-4o-mini"
+def test_ollama_provider_uses_configured_model_not_requested_name(monkeypatch):
+    monkeypatch.setattr(config, "LLM_PROVIDER", "ollama")
+    monkeypatch.setattr(config, "OLLAMA_MODEL", "llama3.2:3b")
+    assert factory.make_chat_model("gpt-4o-mini").model_name == "llama3.2:3b"
 
 
-def test_openai_provider_uses_plain_model_name(monkeypatch):
+def test_openai_provider_uses_requested_model(monkeypatch):
     monkeypatch.setattr(config, "LLM_PROVIDER", "openai")
     monkeypatch.setattr(config, "OPENAI_API_KEY", "sk-fake")
-    llm = factory.make_chat_model("gpt-4o-mini")
-    assert llm.model_name == "gpt-4o-mini"
-    assert llm.openai_api_base != factory.GITHUB_MODELS_URL
+    assert factory.make_chat_model("gpt-4o-mini").model_name == "gpt-4o-mini"
 
 
-def test_github_without_token_raises(monkeypatch):
-    monkeypatch.setattr(config, "LLM_PROVIDER", "github")
-    monkeypatch.setattr(config, "GITHUB_TOKEN", "")
-    with pytest.raises(ValueError, match="GITHUB_TOKEN"):
-        factory.make_chat_model("gpt-4o-mini")
+def test_provider_name_is_case_insensitive(monkeypatch):
+    monkeypatch.setattr(config, "LLM_PROVIDER", " Ollama ")
+    monkeypatch.setattr(config, "OLLAMA_MODEL", "llama3.2:3b")
+    assert factory.make_chat_model("x").model_name == "llama3.2:3b"
 
 
 def test_unknown_provider_raises(monkeypatch):

@@ -12,14 +12,14 @@ Returns: "profiler", "visualization_events", "errors"   (partial state only)
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from agents.detectors import Finding, compute_column_stats, run_all_detectors
 from agents.llm_factory import make_chat_model
@@ -34,6 +34,24 @@ class ProfileSynthesis(BaseModel):
     mode rejects optional fields, and required fields force explicit answers."""
     summary: str = Field(description="4-6 sentence summary for the Cleaning agent")
     top_concerns: list[str] = Field(description="issue_ids ordered most important first")
+
+    @field_validator("top_concerns", mode="before")
+    @classmethod
+    def _coerce_stringified_list(cls, value):
+        # Small local models (Llama 3.2 3B) often return a list as a STRING,
+        # e.g. '["issue_007", "issue_005"]' or 'issue_007, issue_005'.
+        # mode="before" runs BEFORE type validation, so we can repair it here
+        # instead of failing the whole response. Real lists pass through untouched.
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return [str(v) for v in parsed]
+            except json.JSONDecodeError:
+                pass
+            # Not valid JSON: pull out anything shaped like an issue ID.
+            return re.findall(r"issue_\d{3}", value)
+        return value
 
 
 SYSTEM_PROMPT = """You are the Profiler in a data-cleaning pipeline.

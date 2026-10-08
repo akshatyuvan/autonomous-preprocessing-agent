@@ -323,3 +323,13 @@ def test_missing_file_records_non_recoverable_error(tmp_path):
     result = profiler_node(state)
     assert result["profiler"]["run_complete"] is False
     assert result["errors"][0]["recoverable"] is False
+
+# ---------------- structured-output robustness (small local models) ----------------
+def test_synthesis_accepts_list_returned_as_json_string():
+    s = ProfileSynthesis(summary="x", top_concerns='["issue_002", "issue_001"]')
+    assert s.top_concerns == ["issue_002", "issue_001"]
+
+
+def test_synthesis_extracts_ids_from_plain_text_string():
+    s = ProfileSynthesis(summary="x", top_concerns="issue_003, then issue_001")
+    assert s.top_concerns == ["issue_003", "issue_001"]
