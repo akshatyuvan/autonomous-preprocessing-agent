@@ -35,3 +35,4 @@ httpx>=0.27.0          # FastAPI async HTTP client
 python-multipart>=0.0.9  # for file upload in FastAPI (CSV input)
 rank-bm25>=0.2.2          # BM25 sparse retrieval for Hybrid RAG
 imbalanced-learn>=0.12.0  # SMOTE and variants
+mlflow==3.17.0
