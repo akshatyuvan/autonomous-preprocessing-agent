@@ -13,3 +13,4 @@ mlflow.db
 mlruns/
 mlartifacts/
 notebooks/
+models/
