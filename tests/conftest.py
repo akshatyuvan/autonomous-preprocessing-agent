@@ -76,3 +76,10 @@ class _FakeStageLLM:
 @pytest.fixture(autouse=True)
 def _no_real_llm_in_stages(monkeypatch):
     monkeypatch.setattr("agents.stage_runner._get_llm", lambda *args, **kwargs: _FakeStageLLM())
+
+
+@pytest.fixture(autouse=True)
+def _prompted_critic_by_default(monkeypatch):
+    # Even if .env sets CRITIC_MODEL=critic-ft, tests start from the prompted Critic.
+    # Tests for the fine-tuned path set it themselves (their later patch wins).
+    monkeypatch.setattr("config.CRITIC_MODEL", "")

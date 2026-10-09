@@ -6,10 +6,14 @@ Environment: LOCAL (Mac).
 For each decision the stage made that has not been reviewed yet:
   1. Hard checks (pure Python, no LLM): missing before/after evidence, or more
      than MAX_ROW_LOSS of the rows removed in one step -> automatic reject.
-  2. LLM judgment on the before/after evidence -> accept or reject + one-sentence reason.
-     With CRITIC_RETRIEVAL=true, similar labelled past cases are added to the prompt.
-  3. If the LLM output is unusable (unparseable, or the model is down), the decision
-     is let through as UNVERIFIED and counted.
+  2. Cleaning decisions: LLM judgment on the before/after evidence -> accept or reject.
+     - CRITIC_MODEL set (e.g. "critic-ft"): the QLoRA fine-tuned Critic, prompted in
+       the exact plain-JSON format it was trained on. Retrieval stays OFF (measured: it
+       hurt the fine-tuned model).
+     - CRITIC_MODEL empty: the prompted baseline (tool calling), optionally with
+       retrieved labelled cases (CRITIC_RETRIEVAL=true).
+     Other stages: deterministic invariants only (no measured LLM judgment for them).
+  3. If the LLM output is unusable, the decision passes as UNVERIFIED and is counted.
 
 One rejected decision rejects the whole stage. main.critic_router then redoes the
 stage, or -- once the stage has used max_rounds attempts -- the Critic sets
@@ -21,6 +25,7 @@ Planned, NOT built: a Docker sandbox per decision and a downstream model-score c
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -31,16 +36,14 @@ import config
 from agents.critic_policy import POLICY_TEXT
 from agents.evidence import build_evidence
 from agents.llm_factory import make_chat_model
-from state.schema import AgentState, CriticState, CriticVerdict, ErrorRecord, VizEvent
-
 from agents.registries import (
     CLEANING_REGISTRY, ENCODING_REGISTRY, FEATURE_SELECTION_REGISTRY, IMBALANCE_REGISTRY,
     SCALING_REGISTRY,
 )
+from state.schema import AgentState, CriticState, CriticVerdict, ErrorRecord, VizEvent
 
 MAX_ROW_LOSS = 0.30   # removing >30% of rows in ONE step is never a routine fix
 ROW_LOSS_EXEMPT_ISSUES = {"duplicate_rows"}  # removing rows IS the fix for duplicates
-
 
 # Which registry describes each stage's strategies.
 STAGE_REGISTRIES = {
@@ -66,6 +69,7 @@ def invariant_check(decision: dict) -> Optional[str]:
         return (f"introduced {(after.get('missing') or 0) - (before.get('missing') or 0)} "
                 f"new missing value(s)")
     return None
+
 
 class DecisionJudgment(BaseModel):
     """The ONLY thing the Critic LLM produces, per decision."""
@@ -93,7 +97,7 @@ class DecisionJudgment(BaseModel):
 
 
 # The policy text comes from agents/critic_policy.py, the same rules that label the
-# evaluation dataset, so the prompted baseline is told exactly what it is graded on.
+# evaluation dataset, so the Critic is told exactly what it is graded on.
 SYSTEM_PROMPT = f"""You are the Critic: the validation gate of a data-preprocessing pipeline.
 You review ONE transformation that has already been applied. You receive the data-quality issue it
 targeted, the strategy used, what changed ("change"), and statistics of the affected column
@@ -104,10 +108,19 @@ BEFORE and AFTER.
 Return verdict ("accept" or "reject") and reason: one sentence citing the rule number and the numbers you used."""
 
 # Appended only when retrieved cases are present, so the no-retrieval prompt is
-# byte-for-byte the one the Step 5 baseline was measured with.
+# byte-for-byte the one the baselines were measured with.
 RETRIEVAL_NOTE = """similar_cases are past transformations reviewed under the same policy, each with its
 correct verdict and the rule that decided it. Use them to apply the policy consistently,
 but decide on THIS transformation's own numbers."""
+
+# EXACTLY the instruction the fine-tuned model was trained with (notebooks/critic-qlora.ipynb).
+# A fine-tuned model is only as good as the match between its training and serving format.
+JSON_FORMAT_INSTRUCTION = ('\n\nRespond with ONLY a JSON object and nothing else: '
+                           '{"reason": "<one sentence citing the rule number and the numbers>", '
+                           '"verdict": "accept" or "reject"}')
+
+_VERDICT = re.compile(r'"verdict"\s*:\s*"([^"]*)"')
+_REASON = re.compile(r'"reason"\s*:\s*"([^"]*)"')
 
 _RETRIEVER = None  # cached: building the store embeds 300 cases, so do it once per process
 
@@ -116,9 +129,44 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def parse_judgment(text: str) -> DecisionJudgment:
+    """Plain-JSON-text answer -> DecisionJudgment. Same rule as the Kaggle evaluation:
+    find the "verdict" field by pattern, so a stray word around the JSON doesn't matter.
+    Raises ValueError when there is no usable verdict (counted as malformed)."""
+    match = _VERDICT.search(text or "")
+    if not match:
+        raise ValueError(f"no verdict in model output: {(text or '')[:200]!r}")
+    reason = _REASON.search(text)
+    return DecisionJudgment(verdict=match.group(1), reason=reason.group(1) if reason else "")
+
+
+class JsonTextJudge:
+    """The fine-tuned Critic. It was trained to answer in plain JSON text (no tool
+    calling), so it is served the same way: same instruction appended, same parser."""
+
+    def __init__(self, chat_model):
+        self.chat_model = chat_model
+
+    def invoke(self, messages: list[tuple[str, str]]) -> DecisionJudgment:
+        messages = list(messages)
+        role, content = messages[-1]
+        messages[-1] = (role, content + JSON_FORMAT_INSTRUCTION)
+        return parse_judgment(self.chat_model.invoke(messages).content)
+
+
+def make_critic_llm(model: str):
+    """The real Critic LLM. Separate from _get_llm so tests can check it directly
+    (conftest replaces _get_llm with a fake in every test)."""
+    if config.CRITIC_MODEL:
+        if config.LLM_PROVIDER.strip().lower() != "ollama":
+            raise ValueError("CRITIC_MODEL is an Ollama model name; it needs LLM_PROVIDER=ollama")
+        return JsonTextJudge(make_chat_model(model, ollama_model=config.CRITIC_MODEL))
+    return make_chat_model(model).with_structured_output(DecisionJudgment, method="function_calling")
+
+
 def _get_llm(model: str):
     """Isolated so tests monkeypatch exactly this (all tests run with no model)."""
-    return make_chat_model(model).with_structured_output(DecisionJudgment, method="function_calling")
+    return make_critic_llm(model)
 
 
 def _get_retriever():
@@ -187,7 +235,8 @@ def critic_node(state: AgentState) -> dict:
     errors: list[ErrorRecord] = []
 
     retriever = None
-    if decisions and agent in LLM_JUDGED_STAGES:
+    # Retrieval only for the PROMPTED Critic: it measurably hurt the fine-tuned one.
+    if decisions and agent in LLM_JUDGED_STAGES and not config.CRITIC_MODEL:
         try:
             retriever = _get_retriever()
         except Exception as exc:

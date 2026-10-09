@@ -163,6 +163,9 @@ def run_pipeline(
 
 
 if __name__ == "__main__":
+    from agents.critic_policy import label_from_evidence
+    from agents.evidence import build_evidence
+
     result = run_pipeline(
         dataset_path="data/raw/sample.csv",
         dataset_name="smoke_test",
@@ -170,3 +173,20 @@ if __name__ == "__main__":
     print("Critic attempts per stage:", result["critic"]["rounds_per_agent"])
     for v in result["critic"]["verdicts"]:
         print(f"- {v['agent']} attempt {v['attempt']}: {v['verdict']} -- {v['reasoning'][:300]}")
+    for e in result["errors"]:
+        print(f"! {e['agent']} {e['error_type']}: {e['message'][:200]}")
+
+    # Cross-check the gate on LIVE data: what does the written policy (the same function
+    # that labelled the evaluation set) say about each cleaning decision this run made?
+    issues = {i["issue_id"]: i for i in result["profiler"]["issues"]}
+    agree = 0
+    decisions = result["cleaner"]["decisions"]
+    for d in decisions:
+        label, rule, _ = label_from_evidence(build_evidence(d, issues.get(d["issue_id"]), ""))
+        stage_accepted = not any(d["decision_id"] in v["rejected_decision_ids"]
+                                 for v in result["critic"]["verdicts"])
+        gate = "accept" if stage_accepted else "reject"
+        agree += gate == label
+        print(f"  {d['decision_id']} {d['action']:<20} {d['column']:<16} by={d['chosen_by']:<8} "
+              f"gate={gate:<6} policy={label:<6} ({rule})")
+    print(f"Gate agrees with the written policy on {agree}/{len(decisions)} live cleaning decisions")

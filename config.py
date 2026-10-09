@@ -29,6 +29,10 @@ MAX_CRITIC_ROUNDS: int = int(os.getenv("MAX_CRITIC_ROUNDS", "3"))
 # Feed retrieved labelled cases into the Critic prompt (Step 6). Off by default:
 # building the store downloads an embedding model on first use.
 CRITIC_RETRIEVAL: bool = os.getenv("CRITIC_RETRIEVAL", "false").strip().lower() == "true"
+# Ollama model name of the fine-tuned Critic (e.g. "critic-ft"). Empty = the prompted
+# baseline (OLLAMA_MODEL + tool calling). Setting it also turns retrieval OFF for the
+# Critic, because retrieval measurably hurt the fine-tuned model (1.00 -> 0.86, p=0.0001).
+CRITIC_MODEL: str = os.getenv("CRITIC_MODEL", "").strip()
 
 # Paths
 DATA_DIR: str = os.getenv("DATA_DIR", "data")

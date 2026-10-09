@@ -1,0 +1,46 @@
+(venv) akshatyuvan@Akshat-Mac autonomous-preprocessing-agent % python main.py
+
+============================================================
+Starting pipeline for: smoke_test
+Session: 7c62b8ac-6172-453c-9c7f-5a4ebc700192
+============================================================
+
+[Profiler] Running on: smoke_test
+[Profiler] 8 issue(s) found
+[Cleaner] Round 1
+[Cleaner] 8 decision(s) applied
+[Critic] Reviewing cleaner (attempt 1)
+[encoder] Round 1
+[encoder] 2 decision(s) applied
+[Critic] Reviewing encoder (attempt 1)
+[scaler] Round 1
+[scaler] 3 decision(s) applied
+[Critic] Reviewing scaler (attempt 1)
+[feature_selector] Round 1
+[feature_selector] 5 decision(s) applied
+[Critic] Reviewing feature_selector (attempt 1)
+[Analyst] Running exploratory analysis
+
+============================================================
+Pipeline complete.
+Steps run: ['cleaner', 'encoder', 'scaler', 'feature_selector']
+Viz events emitted: 36
+Errors recorded: 2
+============================================================
+
+Critic attempts per stage: {'cleaner': 1, 'encoder': 1, 'scaler': 1, 'feature_selector': 1}
+- cleaner attempt 1: accept -- Accepted all 8 decision(s).
+- encoder attempt 1: accept -- Accepted all 2 decision(s).
+- scaler attempt 1: accept -- Accepted all 3 decision(s).
+- feature_selector attempt 1: accept -- Accepted all 5 decision(s).
+! cleaner llm_fallback_used: LLM choice not used for 1 of 8 issue(s) {'not_applicable': 1}; deterministic fallback applied
+! feature_selector llm_fallback_used: LLM choice not used for 5 of 5 column(s) {'not_applicable': 5}; deterministic fallback applied
+  clean_r1_001 drop_duplicates      __all_columns__  by=llm      gate=accept policy=accept (rule 2: drop_duplicates is a lossless fix)
+  clean_r1_002 parse_datetime       signup_date      by=llm      gate=accept policy=accept (rule 7: parse_datetime affected 0.0% <= 10%)
+  clean_r1_003 cast_numeric         monthly_spend    by=llm      gate=accept policy=accept (rule 7: cast_numeric affected 0.3% <= 10%)
+  clean_r1_004 standardize_category gender           by=llm      gate=accept policy=accept (rule 2: standardize_category is a lossless fix)
+  clean_r1_005 drop_outlier_rows    age              by=llm      gate=accept policy=accept (rule 7: drop_outlier_rows affected 0.3% <= 10%)
+  clean_r1_006 drop_outlier_rows    annual_income    by=llm      gate=accept policy=accept (rule 7: drop_outlier_rows affected 4.7% <= 10%)
+  clean_r1_007 impute_median        annual_income    by=fallback gate=accept policy=accept (rule 8: impute_median with 15% missing)
+  clean_r1_008 impute_median        monthly_spend    by=llm      gate=accept policy=accept (rule 8: impute_median with 1% missing)
+Gate agrees with the written policy on 8/8 live cleaning decisions

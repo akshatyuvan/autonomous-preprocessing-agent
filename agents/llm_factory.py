@@ -15,7 +15,8 @@ from langchain_openai import ChatOpenAI
 import config
 
 
-def make_chat_model(model: str, temperature: float = 0.0) -> ChatOpenAI:
+def make_chat_model(model: str, temperature: float = 0.0,
+                    ollama_model: str | None = None) -> ChatOpenAI:
     # config attributes are read at CALL time (not import time) so tests can monkeypatch them.
     provider = config.LLM_PROVIDER.strip().lower()
 
@@ -24,7 +25,9 @@ def make_chat_model(model: str, temperature: float = 0.0) -> ChatOpenAI:
         # The provider decides the actual model: state["metadata"]["llm_model"] names an
         # OpenAI model ("gpt-4o-mini") that doesn't exist locally, so OLLAMA_MODEL wins.
         return ChatOpenAI(
-            model=config.OLLAMA_MODEL,
+            # ollama_model lets ONE agent (the fine-tuned Critic) use a different local
+            # model than the rest of the pipeline; everyone else gets OLLAMA_MODEL.
+            model=ollama_model or config.OLLAMA_MODEL,
             temperature=temperature,
             base_url=config.OLLAMA_BASE_URL,
             api_key="ollama",   # required by the client, ignored by Ollama

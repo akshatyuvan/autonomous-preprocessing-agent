@@ -92,7 +92,9 @@ def main() -> None:
         rescore(args.rescore)
         return
 
-    name = args.name or ("prompted_rag_ollama" if args.retrieval else "prompted_ollama")
+    # CRITIC_MODEL set -> results are saved as the fine-tuned run, never over a baseline.
+    base_name = "finetuned_ollama" if config.CRITIC_MODEL else "prompted_ollama"
+    name = args.name or (base_name.replace("_ollama", "_rag_ollama") if args.retrieval else base_name)
     examples = load_jsonl(TEST_PATH)
     if args.limit:
         examples = examples[: args.limit]
@@ -105,7 +107,7 @@ def main() -> None:
         judge = lambda llm, evidence: critic.judge_with_llm(llm, evidence, retriever.retrieve(evidence))
 
     provider = config.LLM_PROVIDER.strip().lower()
-    model = config.OLLAMA_MODEL if provider == "ollama" else config.LLM_MODEL
+    model = config.CRITIC_MODEL or (config.OLLAMA_MODEL if provider == "ollama" else config.LLM_MODEL)
     print(f"Evaluating {len(examples)} examples with {provider}:{model} "
           f"(retrieval={'on' if args.retrieval else 'off'})\n")
 
