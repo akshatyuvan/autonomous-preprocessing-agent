@@ -1,0 +1,42 @@
+[
+  {
+    "a": "kaggle_base",
+    "b": "kaggle_base_rag",
+    "n_examples": 100,
+    "accuracy_a": 0.58,
+    "accuracy_b": 0.72,
+    "a_only_correct": 7,
+    "b_only_correct": 21,
+    "p_value": 0.0125
+  },
+  {
+    "a": "kaggle_base",
+    "b": "kaggle_ft",
+    "n_examples": 100,
+    "accuracy_a": 0.58,
+    "accuracy_b": 1.0,
+    "a_only_correct": 0,
+    "b_only_correct": 42,
+    "p_value": 0.0
+  },
+  {
+    "a": "kaggle_ft",
+    "b": "kaggle_ft_rag",
+    "n_examples": 100,
+    "accuracy_a": 1.0,
+    "accuracy_b": 0.86,
+    "a_only_correct": 14,
+    "b_only_correct": 0,
+    "p_value": 0.0001
+  },
+  {
+    "a": "kaggle_base",
+    "b": "kaggle_ft_rag",
+    "n_examples": 100,
+    "accuracy_a": 0.58,
+    "accuracy_b": 0.86,
+    "a_only_correct": 3,
+    "b_only_correct": 31,
+    "p_value": 0.0
+  }
+]
